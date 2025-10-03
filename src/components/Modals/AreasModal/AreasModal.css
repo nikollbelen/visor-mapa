@@ -1,0 +1,187 @@
+/* ========================================
+   MODAL DE ÁREAS COMUNES
+   ======================================== */
+
+.common-areas-modal {
+  position: fixed;
+  top: 50%;
+  right: 20px;
+  transform: translateY(-50%);
+  color: white;
+  width: 30rem;
+  min-width: 350px;
+  max-width: 90vw;
+  max-height: 90vh;
+  pointer-events: auto;
+  z-index: 998;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.common-areas-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 24px 16px 24px;
+  flex-shrink: 0;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.common-areas-modal-header::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(255, 255, 255, 0) 15%,
+    rgba(255, 255, 255, 0.8) 50%,
+    rgba(255, 255, 255, 0) 85%,
+    transparent 100%
+  );
+}
+
+.common-areas-modal-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: white;
+  text-align: center;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.common-areas-modal-icon {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+.common-areas-modal-content {
+  padding: 2rem 3rem;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.common-areas-modal-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.common-areas-modal-content::-webkit-scrollbar-track {
+  background: #000000;
+  border-radius: 4px;
+}
+
+.common-areas-modal-content::-webkit-scrollbar-thumb {
+  background: #333333;
+  border-radius: 4px;
+  border: 1px solid #000000;
+}
+
+.common-areas-modal-content::-webkit-scrollbar-thumb:hover {
+  background: #444444;
+}
+
+/* For Firefox */
+.common-areas-modal-content {
+  scrollbar-width: thin;
+  scrollbar-color: #333333 #000000;
+}
+
+.common-areas-section {
+  margin-bottom: 32px;
+}
+
+.common-areas-section:last-child {
+  margin-bottom: 0;
+}
+
+.common-areas-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.common-areas-card {
+  border: 1px solid rgb(255, 255, 255);
+  background: rgb(0 0 0 / 70%);
+  border-radius: 16px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.common-areas-card-image {
+  width: 100%;
+  height: 120px;
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.common-areas-card-image::before {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.9) 0%,
+    rgba(0, 0, 0, 0.6) 30%,
+    rgba(0, 0, 0, 0.2) 60%,
+    transparent 100%
+  );
+  z-index: 1;
+}
+
+.common-areas-card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.common-areas-card-buttons {
+  margin: auto;
+  width: fit-content;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 1rem;
+}
+
+.common-areas-card-button {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.common-areas-card-button:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}

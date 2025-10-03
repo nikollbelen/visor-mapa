@@ -1,0 +1,13 @@
+{
+"type": "FeatureCollection",
+"name": "areas",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "fid": 2, "kuula_url": "https://kuula.co/share/5B9Hf?logo=1&info=1&fs=1&vr=0&sd=1&thumbs=1" }, "geometry": { "type": "Point", "coordinates": [ -71.897043730287862, -17.099825491095562 ] } },
+{ "type": "Feature", "properties": { "fid": 3, "kuula_url": "https://kuula.co/share/5B9Hl?logo=1&info=1&fs=1&vr=0&sd=1&thumbs=1" }, "geometry": { "type": "Point", "coordinates": [ -71.897172493944453, -17.099668378452055 ] } },
+{ "type": "Feature", "properties": { "fid": 4, "kuula_url": "https://kuula.co/share/5B9HP?logo=1&info=1&fs=1&vr=0&sd=1&thumbs=1" }, "geometry": { "type": "Point", "coordinates": [ -71.897643714134489, -17.099217988139454 ] } },
+{ "type": "Feature", "properties": { "fid": 5, "kuula_url": "https://kuula.co/share/5B9Hk?logo=1&info=1&fs=1&vr=0&sd=1&thumbs=1" }, "geometry": { "type": "Point", "coordinates": [ -71.898112194672265, -17.098668091513716 ] } },
+{ "type": "Feature", "properties": { "fid": 6, "kuula_url": "https://kuula.co/share/5B9Hv?logo=1&info=1&fs=1&vr=0&sd=1&thumbs=1" }, "geometry": { "type": "Point", "coordinates": [ -71.898227260067529, -17.098736174041154 ] } },
+{ "type": "Feature", "properties": { "fid": 7, "kuula_url": "https://kuula.co/share/5B9H9?logo=1&info=1&fs=1&vr=0&sd=1&thumbs=1" }, "geometry": { "type": "Point", "coordinates": [ -71.898317668592355, -17.098628813121181 ] } }
+]
+}

@@ -1,0 +1,123 @@
+/* Reset básico sin afectar Cesium */
+html, body {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+/* ===== SCROLLBAR PERSONALIZADO ===== */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #000000;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333333;
+  border-radius: 4px;
+  border: 1px solid #000000;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #444444;
+}
+
+/* ===== VARIABLES CSS GLOBALES ===== */
+:root {
+
+  /* Colores de texto */
+  --text-color: #ffffff;
+  
+  /* Colores de fondo */
+  --glass-bg: rgba(14, 14, 14, 0.8);
+  --glass-bg-solid: #0e0e0e;
+  --glass-bg-light: rgb(39 39 39 / 50%);
+  
+  /* Colores de borde */
+  --glass-border: rgba(255, 255, 255, 0.8);
+  --glass-border-light: rgba(255, 255, 255, 0.3);
+  
+  /* Sombras */
+  --shadow-dark: 0 15px 40px rgba(0, 0, 0, 0.4);
+  --shadow-medium: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-light: 0 6px 20px rgba(255, 255, 255, 0.15);
+  
+  /* Transiciones */
+  --transition-smooth: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  --transition-fast: all 0.3s ease;
+}
+
+/* Estilos específicos para tu app */
+
+#cesiumContainer {
+  height: 100vh;
+  width: 100vw;
+}
+
+.cesium-viewer-bottom,
+.cesium-widget-credits,
+.cesium-credit-textContainer,
+.cesium-credit-imageContainer {
+  display: none !important;
+}
+
+/* ===== CLASES UTILITARIAS GLOBALES ===== */
+
+.background-container {
+  background-color: var(--glass-bg);
+  backdrop-filter: blur(5px);
+  border-radius: 1rem;
+  box-shadow: var(--shadow-dark);
+}
+
+.background-light-container {
+  background-color: var(--glass-bg-light);
+  border-radius: 1rem;
+}
+
+.border-container {
+  border: 1px solid var(--glass-border);
+}
+
+.background-btn {
+  background-color: var(--glass-bg);
+  border: 0.5px solid var(--glass-border-light);
+  color: var(--text-color);
+  border-radius: 1rem;
+}
+
+.background-btn:hover {
+  background: var(--glass-bg);
+  box-shadow: var(--shadow-light);
+}
+
+.close-btn {
+  background: var(--glass-bg-solid);
+  border: none;
+  color: var(--text-color);
+  font-size: 24px;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  border-radius: 50%;
+  z-index: 10000;
+  box-shadow: var(--shadow-medium);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-smooth);
+  position: absolute;
+  top: 15px;
+  right: 15px;
+}
+
+.close-btn:hover {
+  transform: scale(1.1);
+}

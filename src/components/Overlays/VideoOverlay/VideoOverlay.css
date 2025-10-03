@@ -1,0 +1,39 @@
+/* ========================================
+   OVERLAY VIDEO
+   ======================================== */
+.video-overlay-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 998;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.video-overlay-background.show {
+  opacity: 1;
+}
+
+.video-overlay {
+  max-width: 90vw;
+  max-height: 90vh;
+  position: relative;
+  background: #000;
+  border-radius: 20px;
+  display: inline-block;
+}
+
+.video-overlay video {
+  width: auto;
+  height: auto;
+  max-width: 90vw;
+  max-height: 90vh;
+  border-radius: 20px;
+  display: block;
+}

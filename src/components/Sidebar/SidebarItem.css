@@ -1,0 +1,67 @@
+/* ========================================
+   SIDEBAR ITEM
+   ======================================== */
+
+.sidebar-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 13px 6px;
+  color: white;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 400;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  position: relative;
+}
+
+.sidebar-item::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(255, 255, 255, 0.2) 15%,
+    rgba(255, 255, 255, 0.8) 50%,
+    rgba(255, 255, 255, 0.2) 85%,
+    transparent 100%
+  );
+}
+
+.sidebar-item:last-child {
+  border-bottom: none;
+}
+
+.sidebar-item:hover {
+  background: radial-gradient(
+    circle at center left,
+    rgba(76, 175, 80, 0.4) 0%,
+    rgba(46, 125, 50, 0.2) 40%,
+    transparent 60%
+  );
+}
+
+.sidebar-item.active {
+  background: radial-gradient(
+    circle at center left,
+    rgba(76, 175, 80, 0.4) 0%,
+    rgba(46, 125, 50, 0.2) 40%,
+    transparent 60%
+  );
+}
+
+.sidebar-item img {
+  width: 3rem;
+  height: 3rem;
+}
+
+.sidebar-item span {
+  text-align: center;
+  line-height: 1.3;
+  font-weight: 400;
+}

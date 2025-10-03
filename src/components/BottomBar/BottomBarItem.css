@@ -1,0 +1,33 @@
+/* ========================================
+   BOTTOMBAR ITEM
+   ======================================== */
+
+.bottombar-icon-button {
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 1s ease;
+  background: none;
+}
+
+.bottombar-icon-button:hover {
+  background-image: url("/images/bottombar/fondo_boton_resaltado.svg");
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.bottombar-icon-button.active {
+  background-image: url("/images/bottombar/fondo_boton_resaltado.svg");
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.bottombar-icon-button img {
+  width: 24px;
+  height: 24px;
+}

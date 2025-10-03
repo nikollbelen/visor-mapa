@@ -1,0 +1,196 @@
+/* ========================================
+   MODAL DE ENTORNO
+   ======================================== */
+.around-modal {
+  position: fixed;
+  top: 50%;
+  right: 20px;
+  transform: translateY(-50%);
+  color: white;
+  width: 30rem;
+  min-width: 350px;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: hidden;
+  pointer-events: auto;
+  z-index: 998;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.around-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 24px 16px 24px;
+  flex-shrink: 0;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.around-modal-header::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(255, 255, 255, 0) 15%,
+    rgba(255, 255, 255, 0.8) 50%,
+    rgba(255, 255, 255, 0) 85%,
+    transparent 100%
+  );
+}
+
+.around-modal-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: white;
+  text-align: center;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.around-modal-title img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+.around-modal-content {
+  padding: 2rem 3rem;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Style scrollbar for location-modal-content */
+.around-modal-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.around-modal-content::-webkit-scrollbar-track {
+  background: #000000;
+  border-radius: 4px;
+}
+
+.around-modal-content::-webkit-scrollbar-thumb {
+  background: #333333;
+  border-radius: 4px;
+  border: 1px solid #000000;
+}
+
+.around-modal-content::-webkit-scrollbar-thumb:hover {
+  background: #444444;
+}
+
+/* For Firefox */
+.around-modal-content {
+  scrollbar-width: thin;
+  scrollbar-color: #333333 #000000;
+}
+
+.around-section {
+  margin-bottom: 32px;
+}
+
+.around-section:last-child {
+  margin-bottom: 0;
+}
+
+.around-card-image {
+  width: 100%;
+  height: 15rem;
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.around-card-image::before {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.9) 0%,
+    rgba(0, 0, 0, 0.6) 30%,
+    rgba(0, 0, 0, 0.2) 60%,
+    transparent 100%
+  );
+  z-index: 1;
+}
+
+.around-card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.around-card-details {
+  margin-top: 16px;
+}
+
+.around-card-details h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.around-card-details p {
+  text-align: center;
+  color: white;
+  margin-bottom: 16px;
+}
+
+.around-card-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 12px;
+  padding: 4px 0;
+}
+
+.around-card-time-estimate {
+  border: 1px solid #555;
+  background: none;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 12px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.around-card-link-button {
+  border: 1px solid #555;
+  background-color: rgba(148, 143, 143, 0.5);
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 12px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.around-card-link-button:hover {
+  background-color: rgba(44, 69, 117, 0.05);
+}

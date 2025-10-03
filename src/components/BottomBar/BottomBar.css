@@ -1,0 +1,74 @@
+/* ========================================
+   BOTTOMBAR
+   ======================================== */
+
+.bottombar {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  z-index: 998;
+}
+
+.bottombar-icon-toolbar {
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+}
+
+.bottombar-status-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.bottombar-status-button {
+  backdrop-filter: blur(5px);
+  background: rgba(14, 14, 14, 0.8);
+  border: 0.5px solid rgba(255, 255, 255, 0.8);
+  border-radius: 10px;
+  padding: 8px 12px;
+  color: white;
+  font-size: 14px;
+  font-weight: 700;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.bottombar-status-indicator {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+
+.disponible .bottombar-status-indicator {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+}
+
+.reservado .bottombar-status-indicator {
+  background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%);
+}
+
+.vendido .bottombar-status-indicator {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.bottombar-divider {
+  width: 1px;
+  height: 30px;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(255, 255, 255, 0.2) 15%,
+    rgba(255, 255, 255, 0.8) 50%,
+    rgba(255, 255, 255, 0.2) 85%,
+    transparent 100%
+  );
+  margin: 0 8px;
+}

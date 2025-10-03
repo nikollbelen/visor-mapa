@@ -1,0 +1,57 @@
+/* ========================================
+   FOTOS 360°
+   ======================================== */
+.overlay-360-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.8);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 998;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.overlay-360-background.show {
+  display: flex;
+  opacity: 1;
+}
+
+.overlay-360 {
+  background: white;
+  border-radius: 20px;
+  width: 90vw;
+  height: 80vh;
+  max-width: 1200px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+  transform: scale(0.8) translateY(50px);
+  opacity: 0;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 0.4s ease;
+}
+
+.overlay-360-background.show .overlay-360 {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+}
+
+.overlay-360-content {
+  width: 100%;
+  height: calc(100% + 2rem);
+  position: relative;
+  top: -2rem;
+  overflow: hidden;
+  background: #f5f5f5;
+}
+
+.overlay-360-content iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}

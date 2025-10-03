@@ -1,0 +1,16 @@
+{
+"type": "FeatureCollection",
+"name": "entorno",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "fid": 1, "tipo": "Restaurantes", "nombre": "Puerto Mejía", "icono": "images/sidebar/entorno/marcadores_entorno/puerto_mejia.png", "imagen": "images/sidebar/entorno/images/puerto_mejia.png" }, "geometry": { "type": "Point", "coordinates": [ -71.899786004470542, -17.113818039323291 ] } },
+{ "type": "Feature", "properties": { "fid": 2, "tipo": "Restaurantes", "nombre": "Sal y pimienta", "icono": "images/sidebar/entorno/marcadores_entorno/sal_y_pimienta.png", "imagen": "images/sidebar/entorno/images/sal_y_pimienta.png" }, "geometry": { "type": "Point", "coordinates": [ -71.90763698808188, -17.10116555608129 ] } },
+{ "type": "Feature", "properties": { "fid": 3, "tipo": "Hoteles", "nombre": "Hotel Sacsay", "icono": "images/sidebar/entorno/marcadores_entorno/hotel_sacsay.png", "imagen": "images/sidebar/entorno/images/hotel_sacsay.png" }, "geometry": { "type": "Point", "coordinates": [ -71.90275462284399, -17.10149085940518 ] } },
+{ "type": "Feature", "properties": { "fid": 4, "tipo": "Hoteles", "nombre": "Marbella Bungalows", "icono": "images/sidebar/entorno/marcadores_entorno/marbella_bungalows.png", "imagen": "images/sidebar/entorno/images/marbella_bungalows.png" }, "geometry": { "type": "Point", "coordinates": [ -71.9026590430424, -17.10694401555843 ] } },
+{ "type": "Feature", "properties": { "fid": 5, "tipo": "Seguridad", "nombre": "Comisaría Mejía", "icono": "images/sidebar/entorno/marcadores_entorno/comisaria.png", "imagen": "images/sidebar/entorno/images/comisaria.png" }, "geometry": { "type": "Point", "coordinates": [ -71.905043443506756, -17.102407284107478 ] } },
+{ "type": "Feature", "properties": { "fid": 6, "tipo": "Turismo", "nombre": "Lagunas Mejía", "icono": "images/sidebar/entorno/marcadores_entorno/lagunas.png", "imagen": "images/sidebar/entorno/images/lagunas.png" }, "geometry": { "type": "Point", "coordinates": [ -71.90213427227505, -17.104866242841172 ] } },
+{ "type": "Feature", "properties": { "fid": 7, "tipo": "Turismo", "nombre": "Plaza Mejía", "icono": "images/sidebar/entorno/marcadores_entorno/plaza.png", "imagen": "images/sidebar/entorno/images/plaza.png" }, "geometry": { "type": "Point", "coordinates": [ -71.90461027551943, -17.10177986257614 ] } },
+{ "type": "Feature", "properties": { "fid": 8, "tipo": "Playas", "nombre": "Playa Margarita", "icono": "images/sidebar/entorno/marcadores_entorno/playa_margarita.png", "imagen": "images/sidebar/entorno/images/playa_margarita.png" }, "geometry": { "type": "Point", "coordinates": [ -71.909568066826, -17.10295402077263 ] } },
+{ "type": "Feature", "properties": { "fid": 9, "tipo": "Playas", "nombre": "Playa Los Medanos", "icono": "images/sidebar/entorno/marcadores_entorno/playa_los_medanos.png", "imagen": "images/sidebar/entorno/images/playa_los_medanos.png" }, "geometry": { "type": "Point", "coordinates": [ -71.90334211956845, -17.110271265668217 ] } }
+]
+}
