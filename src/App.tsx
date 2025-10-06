@@ -241,9 +241,9 @@ export default function App() {
   const handleLotInfoModalClose = () => {
     setShowLotInfoModal(false);
     setSelectedLote(null);
-    // Limpiar selección en Cesium
-    if (window.cesiumClearSelection) {
-      window.cesiumClearSelection();
+    // Limpiar estado en Cesium
+    if (window.reiniciarMenu) {
+      window.reiniciarMenu();
     }
   };
 

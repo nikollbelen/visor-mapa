@@ -3,14 +3,6 @@ export {};
 declare global {
   interface Window {
     Cesium: any;
-    flyToLocation: (
-      lon: number,
-      lat: number,
-      height: number,
-      name: string
-    ) => void;
-    cesiumClearSelection: () => void;
-    getProcessedLots: () => any[];
     getMaxPrice: () => number;
     getMaxArea: () => number;
     getMinPrice: () => number;

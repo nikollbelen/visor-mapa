@@ -29,14 +29,10 @@ let selected = null;
 let selectedOriginalMaterial = null;
 
 // Lot colors
-const disponible =
-  window.Cesium.Color.fromCssColorString("#00BA13");
-const reservado =
-  window.Cesium.Color.fromCssColorString("#F5E200");
-const vendido =
-  window.Cesium.Color.fromCssColorString("#D11F00");
-const modeSelected =
-  window.Cesium.Color.fromCssColorString("#FFFFFF");
+const disponible = window.Cesium.Color.fromCssColorString("#00BA13");
+const reservado = window.Cesium.Color.fromCssColorString("#F5E200");
+const vendido = window.Cesium.Color.fromCssColorString("#D11F00");
+const modeSelected = window.Cesium.Color.fromCssColorString("#FFFFFF");
 
 let maxPrice = 0;
 let maxArea = 0;
@@ -52,8 +48,6 @@ try {
   console.error("❌ Error loading map image:", error);
 }
 
-
-// Function to load lot data
 async function loadLotesData() {
   try {
     const response = await fetch("./data/lotes.geojson");
@@ -277,7 +271,8 @@ async function loadLotesData() {
             window.Cesium.HeightReference.RELATIVE_TO_GROUND;
           e.polygon.outline = true;
           e.polygon.outlineColor = window.Cesium.Color.BLACK.withAlpha(0);
-          e._baseMaterial = window.Cesium.Color.fromCssColorString("#fff").withAlpha(0.01); // Save transparent material
+          e._baseMaterial =
+            window.Cesium.Color.fromCssColorString("#fff").withAlpha(0.01); // Save transparent material
           return; // Skip to next
         }
 
@@ -316,10 +311,7 @@ async function loadLotesData() {
   }
 }
 
-
-// Function to configure lot interactions
 function setupLoteInteractions() {
-
   const handler = new window.Cesium.ScreenSpaceEventHandler(
     viewer.scene.canvas
   );
@@ -401,7 +393,6 @@ function setupLoteInteractions() {
     const valLote =
       typeof lote?.getValue === "function" ? lote.getValue() : lote;
 
-
     // Simple boundary calculation based on lot number
     const lotNumber = parseInt(valLote);
 
@@ -453,8 +444,7 @@ function setupLoteInteractions() {
   handler.setInputAction((movement) => {
     // 1) Quick attempt with drillPick
     const picked = viewer.scene.drillPick(movement.endPosition) || [];
-    let entity =
-      picked.map((p) => p.id).find((id) => id && id.polygon) || null;
+    let entity = picked.map((p) => p.id).find((id) => id && id.polygon) || null;
 
     // Restore hover if we moved away or to another entity
     if (highlighted && highlighted !== entity) {
@@ -472,7 +462,9 @@ function setupLoteInteractions() {
       const fid = getFid(entity);
       if (fid !== undefined) {
         // Check if the lot is empty
-        const loteValue = entity.properties.lote ? entity.properties.lote.getValue() : "";
+        const loteValue = entity.properties.lote
+          ? entity.properties.lote.getValue()
+          : "";
         if (loteValue === "") {
           // For empty lots, don't hover or change cursor
           viewer.scene.canvas.style.cursor = "default";
@@ -492,8 +484,6 @@ function setupLoteInteractions() {
 
   // Click interaction
   handler.setInputAction((click) => {
-    // Primero limpiar todo (botones, marcadores, modales, rutas)
-    reiniciarMenu();
 
     const picked = viewer.scene.drillPick(click.position) || [];
     let entity = picked.map((p) => p.id).find((id) => id && id.polygon) || null;
@@ -517,6 +507,8 @@ function setupLoteInteractions() {
     if (!entity) return;
     const fid = getFid(entity);
     if (fid === undefined) return;
+    // Primero limpiar todo (botones, marcadores, modales, rutas)
+    reiniciarMenu();
 
     // Select new entity
     selected = entity;
@@ -541,10 +533,8 @@ function setupLoteInteractions() {
   }, window.Cesium.ScreenSpaceEventType.LEFT_CLICK);
 }
 
-// Load lot data after initializing Cesium
 loadLotesData();
 
-// Function to extract all lot polygon positions
 function extractLotesPositions(lotesData) {
   const positions = [];
 
@@ -578,7 +568,8 @@ function extractLotesPositions(lotesData) {
   return positions;
 }
 
-// Function to fly to lots view
+// Global functions
+
 function flyToLotesView() {
   if (lotesPositions && lotesPositions.length > 0) {
     flyToView(lotesPositions);
@@ -594,120 +585,21 @@ function flyToLotesView() {
   }
 }
 
-// Function to reset menu
-function reiniciarMenu() {
-  // Remove active classes from all sidebar buttons
-  const fotosBtn = document.getElementById("fotos");
-  const areasBtn = document.getElementById("areas");
-  const lotesBtn = document.getElementById("lotes");
-  const entornoBtn = document.getElementById("entorno");
-  const videoBtn = document.getElementById("video");
+function flyToView(positions) {
+  if (!viewer || !positions || positions.length === 0) return;
 
-  if (fotosBtn) fotosBtn.classList.remove("active");
-  if (areasBtn) areasBtn.classList.remove("active");
-  if (lotesBtn) lotesBtn.classList.remove("active");
-  if (entornoBtn) entornoBtn.classList.remove("active");
-  if (videoBtn) videoBtn.classList.remove("active");
-
-  // Hide all modals and overlays
-  const modalOverlay = document.getElementById("modalOverlay");
-  const overlay360 = document.getElementById("overlay360");
-  const commonAreasModalOverlay = document.getElementById(
-    "commonAreasModalOverlay"
-  );
-  const lotSearchModalOverlay = document.getElementById(
-    "lotSearchModalOverlay"
-  );
-  const aroundButtonsContainer = document.getElementById(
-    "aroundButtonsContainer"
-  );
-  const aroundModalOverlay = document.getElementById("aroundModalOverlay");
-
-  if (modalOverlay) modalOverlay.style.display = "none";
-  if (overlay360) overlay360.style.display = "none";
-  if (commonAreasModalOverlay) commonAreasModalOverlay.style.display = "none";
-  if (lotSearchModalOverlay) lotSearchModalOverlay.style.display = "none";
-  if (aroundButtonsContainer) aroundButtonsContainer.style.display = "none";
-  if (aroundModalOverlay) aroundModalOverlay.style.display = "none";
-
-  // Clear selected lot state using global function
-  if (window.cesiumClearSelection) {
-    window.cesiumClearSelection();
-  }
-
-  // Clear ALL markers when changing mode
-  if (viewer) {
-    const allEntitiesToRemove = viewer.entities.values.filter(
-      (entity) =>
-        entity.id &&
-        (entity.id.startsWith("marcador_foto_") ||
-          entity.id.startsWith("area_comun_") ||
-          entity.id.startsWith("marcador_entorno_"))
-    );
-    allEntitiesToRemove.forEach((entity) => viewer.entities.remove(entity));
-  }
-
-  // Clear previous route if exists
-  clearRoute();
-
-  // Return to lots view
-  flyToLotesView();
+  const boundingSphere = window.Cesium.BoundingSphere.fromPoints(positions);
+  // Ajustar la vista para mostrar todos los marcadores
+  viewer.camera.flyToBoundingSphere(boundingSphere, {
+    duration: 1.5,
+    offset: new window.Cesium.HeadingPitchRange(
+      0.0,
+      window.Cesium.Math.toRadians(-90),
+      boundingSphere.radius * 3.7
+    ),
+  });
 }
 
-// Global function for React to use
-window.flyToLocation = function (lon, lat, height, name) {
-  if (!viewer) {
-    console.warn("⚠️ Cesium viewer is not ready");
-    return;
-  }
-
-  viewer.camera.flyTo({
-    destination: window.Cesium.Cartesian3.fromDegrees(lon, lat, height),
-    duration: 3,
-    orientation: {
-      heading: window.Cesium.Math.toRadians(0),
-      pitch: window.Cesium.Math.toRadians(-90),
-      roll: 0.0,
-    },
-  });
-};
-
-
-// Expose functions globally for React integration
-window.cesiumClearSelection = function () {
-  if (selected) {
-    const base = selected._baseMaterial || selectedOriginalMaterial;
-    if (base) selected.polygon.material = base;
-  }
-  selected = null;
-  selectedOriginalMaterial = null;
-  if (viewer) viewer.scene.requestRender();
-};
-
-// Expose processed lots data for React
-window.getProcessedLots = function () {
-  return processedLots;
-};
-
-// Expose max values for React
-window.getMaxPrice = function () {
-  return maxPrice;
-};
-
-window.getMaxArea = function () {
-  return maxArea;
-};
-
-// Expose min values for React
-window.getMinPrice = function () {
-  return minPrice;
-};
-
-window.getMinArea = function () {
-  return minArea;
-};
-
-// Función para manejar hover de marcadores
 function hoverMarcadores() {
   if (!viewer) return;
 
@@ -747,31 +639,74 @@ function hoverMarcadores() {
   }, window.Cesium.ScreenSpaceEventType.MOUSE_MOVE);
 }
 
-// Clear route
-function clearRoute() {
-  if (window.currentRoute) {
-    viewer.entities.remove(window.currentRoute);
-    window.currentRoute = null;
+// Sidebar
+
+function reiniciarMenu() {
+  console.log("Reiniciando menu");
+  // Remove active classes from all sidebar buttons
+  const fotosBtn = document.getElementById("fotos");
+  const areasBtn = document.getElementById("areas");
+  const lotesBtn = document.getElementById("lotes");
+  const entornoBtn = document.getElementById("entorno");
+  const videoBtn = document.getElementById("video");
+
+  if (fotosBtn) fotosBtn.classList.remove("active");
+  if (areasBtn) areasBtn.classList.remove("active");
+  if (lotesBtn) lotesBtn.classList.remove("active");
+  if (entornoBtn) entornoBtn.classList.remove("active");
+  if (videoBtn) videoBtn.classList.remove("active");
+
+  // Hide all modals and overlays
+  const modalOverlay = document.getElementById("modalOverlay");
+  const overlay360 = document.getElementById("overlay360");
+  const commonAreasModalOverlay = document.getElementById(
+    "commonAreasModalOverlay"
+  );
+  const lotSearchModalOverlay = document.getElementById(
+    "lotSearchModalOverlay"
+  );
+  const aroundButtonsContainer = document.getElementById(
+    "aroundButtonsContainer"
+  );
+  const aroundModalOverlay = document.getElementById("aroundModalOverlay");
+
+  if (modalOverlay) modalOverlay.style.display = "none";
+  if (overlay360) overlay360.style.display = "none";
+  if (commonAreasModalOverlay) commonAreasModalOverlay.style.display = "none";
+  if (lotSearchModalOverlay) lotSearchModalOverlay.style.display = "none";
+  if (aroundButtonsContainer) aroundButtonsContainer.style.display = "none";
+  if (aroundModalOverlay) aroundModalOverlay.style.display = "none";
+
+  // Clear selected lot state using global function
+  if (selected) {
+    const base = selected._baseMaterial || selectedOriginalMaterial;
+    if (base) selected.polygon.material = base;
   }
+  selected = null;
+  selectedOriginalMaterial = null;
+  if (viewer) viewer.scene.requestRender();
+
+  // Clear ALL markers when changing mode
+  if (viewer) {
+    const allEntitiesToRemove = viewer.entities.values.filter(
+      (entity) =>
+        entity.id &&
+        (entity.id.startsWith("marcador_foto_") ||
+          entity.id.startsWith("area_comun_") ||
+          entity.id.startsWith("marcador_entorno_"))
+    );
+    allEntitiesToRemove.forEach((entity) => viewer.entities.remove(entity));
+  }
+
+  // Clear previous route if exists
+  clearRoute();
+
+  // Return to lots view
+  flyToLotesView();
 }
 
-// Calcular centro y hacer zoom
-function flyToView(positions) {
-  if (!viewer || !positions || positions.length === 0) return;
+// Fotos 360°
 
-  const boundingSphere = window.Cesium.BoundingSphere.fromPoints(positions);
-  // Ajustar la vista para mostrar todos los marcadores
-  viewer.camera.flyToBoundingSphere(boundingSphere, {
-    duration: 1.5,
-    offset: new window.Cesium.HeadingPitchRange(
-      0.0,
-      window.Cesium.Math.toRadians(-90),
-      boundingSphere.radius * 3.7
-    ),
-  });
-}
-
-// Funciones de manejo de botones del sidebar
 async function handleFotos() {
   reiniciarMenu();
 
@@ -842,6 +777,44 @@ async function handleFotos() {
     console.error("Error al cargar las fotos 360°:", error);
   }
 }
+
+// Function to handle clicks on 360° markers
+function clickMarcadores360() {
+  if (!viewer) return;
+
+  viewer.screenSpaceEventHandler.setInputAction(function onLeftClick(click) {
+    const pickedObject = viewer.scene.pick(click.position);
+
+    if (pickedObject && pickedObject.id) {
+      const entity = pickedObject.id;
+      const entityId = entity.id;
+
+      if (entityId && entityId.startsWith("marcador_foto_")) {
+        const kuulaUrl = entity.properties.kuulaUrl._value;
+        openOverlay360(kuulaUrl);
+        console.log("clickMarcadores360 click");
+      }
+    }
+  }, window.Cesium.ScreenSpaceEventType.LEFT_CLICK);
+}
+
+// Function to open 360° overlay
+function openOverlay360(kuulaUrl) {
+  window.dispatchEvent(
+    new CustomEvent("openPhotos360", {
+      detail: { kuulaUrl: kuulaUrl },
+    })
+  );
+}
+
+// Function to close 360° overlay
+function closeOverlay360() {
+  // Only dispatch custom event for React
+  // React will handle hiding the overlay
+  window.dispatchEvent(new CustomEvent("closePhotos360"));
+}
+
+// Áreas comunes
 
 async function handleAreasComunes() {
   reiniciarMenu();
@@ -940,159 +913,6 @@ async function handleAreasComunes() {
     })
   );
 }
-
-function handleLotes() {
-  reiniciarMenu();
-
-  // Activate lots button
-  const lotesBtn = document.getElementById("lotes");
-  if (lotesBtn) lotesBtn.classList.add("active");
-
-  // Volar a la vista de lotes
-  flyToLotesView();
-
-  // Dispatch event to open lot search modal
-  window.dispatchEvent(new CustomEvent("openLotSearchModal"));
-}
-
-async function handleEntorno() {
-  reiniciarMenu();
-
-  // Activate environment button
-  const entornoBtn = document.getElementById("entorno");
-  if (entornoBtn) entornoBtn.classList.add("active");
-
-  // Ensure button container is visible
-  const aroundButtonsContainer = document.getElementById(
-    "aroundButtonsContainer"
-  );
-  if (aroundButtonsContainer) {
-    aroundButtonsContainer.style.display = "flex";
-  }
-
-  // Dispatch event to show environment buttons
-  window.dispatchEvent(new CustomEvent("openEntornoButtons"));
-
-  // Load all markers from entorno.geojson
-  await loadEntornoMarkers();
-
-  // Activate "Todos" button initially
-  updateEntornoButtonsState("Todos");
-}
-
-// Function to return to initial environment state (without closing everything)
-function resetEntornoToInitialState() {
-  // Close modal if open
-  const aroundModalOverlay = document.getElementById("aroundModalOverlay");
-  if (aroundModalOverlay) {
-    aroundModalOverlay.style.display = "none";
-  }
-
-  // Ensure button container is visible
-  const aroundButtonsContainer = document.getElementById(
-    "aroundButtonsContainer"
-  );
-  if (aroundButtonsContainer) {
-    aroundButtonsContainer.style.display = "flex";
-  }
-
-  // Clear previous route
-  clearRoute();
-
-  // Clear existing markers
-  const entitiesToRemove = viewer.entities.values.filter(
-    (entity) => entity.id && entity.id.startsWith("marcador_entorno_")
-  );
-  entitiesToRemove.forEach((entity) => viewer.entities.remove(entity));
-
-  // Reload all markers
-  loadEntornoMarkers();
-
-  // Fly to show all markers
-  const positions = [];
-  viewer.entities.values.forEach((entity) => {
-    if (entity.id && entity.id.startsWith("marcador_entorno_")) {
-      const position = entity.position.getValue(viewer.clock.currentTime);
-      if (position) {
-        positions.push(position);
-      }
-    }
-  });
-
-  if (positions.length > 0) {
-    flyToView(positions);
-  }
-
-  // Activate "Todos" button
-  updateEntornoButtonsState("Todos");
-}
-
-function handleVideo() {
-  reiniciarMenu();
-
-  // Activate video button
-  const videoBtn = document.getElementById("video");
-  if (videoBtn) videoBtn.classList.add("active");
-
-  // Dispatch event to show video overlay
-  window.dispatchEvent(new CustomEvent("openVideoOverlay"));
-}
-
-// Function to close video
-function closeVideoOverlay() {
-  // Pause and reset video if exists
-  const video = document.getElementById("videoPlayer");
-  if (video) {
-    video.pause();
-    video.currentTime = 0;
-  }
-
-  // Deactivate video button
-  const videoBtn = document.getElementById("video");
-  if (videoBtn) {
-    videoBtn.classList.remove("active");
-  }
-}
-
-
-
-// Function to handle clicks on 360° markers
-function clickMarcadores360() {
-  if (!viewer) return;
-
-  viewer.screenSpaceEventHandler.setInputAction(function onLeftClick(click) {
-    const pickedObject = viewer.scene.pick(click.position);
-
-    if (pickedObject && pickedObject.id) {
-      const entity = pickedObject.id;
-      const entityId = entity.id;
-
-      if (entityId && entityId.startsWith("marcador_foto_")) {
-        const kuulaUrl = entity.properties.kuulaUrl._value;
-        openOverlay360(kuulaUrl);
-      }
-    }
-  }, window.Cesium.ScreenSpaceEventType.LEFT_CLICK);
-}
-
-// Function to open 360° overlay
-function openOverlay360(kuulaUrl) {
-  // Only dispatch custom event for React
-  // React will handle rendering and showing the overlay
-  window.dispatchEvent(
-    new CustomEvent("openPhotos360", {
-      detail: { kuulaUrl: kuulaUrl },
-    })
-  );
-}
-
-// Function to close 360° overlay
-function closeOverlay360() {
-  // Only dispatch custom event for React
-  // React will handle hiding the overlay
-  window.dispatchEvent(new CustomEvent("closePhotos360"));
-}
-
 // Function to populate the common areas modal with GeoJSON data
 function populateAreasModal(areasData) {
   // Disparar evento para que React maneje el modal
@@ -1135,6 +955,39 @@ function flyToAreaComun(fid) {
   } else {
     console.error(`No se encontró el área común con fid ${fid}`);
   }
+}
+// Lotes
+
+// Expose max values for React
+window.getMaxPrice = function () {
+  return maxPrice;
+};
+
+window.getMaxArea = function () {
+  return maxArea;
+};
+
+// Expose min values for React
+window.getMinPrice = function () {
+  return minPrice;
+};
+
+window.getMinArea = function () {
+  return minArea;
+};
+
+function handleLotes() {
+  reiniciarMenu();
+
+  // Activate lots button
+  const lotesBtn = document.getElementById("lotes");
+  if (lotesBtn) lotesBtn.classList.add("active");
+
+  // Volar a la vista de lotes
+  flyToLotesView();
+
+  // Dispatch event to open lot search modal
+  window.dispatchEvent(new CustomEvent("openLotSearchModal"));
 }
 
 // Lot filtering and search functions
@@ -1211,8 +1064,9 @@ function renderLotCards(lots) {
     card.innerHTML = `
               <div class="lot-card-header">${lot.number}</div>
               <div class="lot-card-separator"></div>
-              <div class="lot-card-status">${lot.status.charAt(0).toUpperCase() + lot.status.slice(1)
-      }</div>
+              <div class="lot-card-status">${
+                lot.status.charAt(0).toUpperCase() + lot.status.slice(1)
+              }</div>
               <div class="lot-card-details">
                 <span class="lot-card-label">Precio</span>
                 <span class="lot-card-value">$ ${lot.price.toLocaleString()}</span>
@@ -1221,7 +1075,9 @@ function renderLotCards(lots) {
                 <span class="lot-card-label">Área</span>
                 <span class="lot-card-value">${lot.area.toFixed(2)} m²</span>
               </div>
-              <button class="lot-card-view-more-btn" onclick="handleLotCardClick('${lot.number}')">
+              <button class="lot-card-view-more-btn" onclick="handleLotCardClick('${
+                lot.number
+              }')">
                 Ver más <i class="fas fa-arrow-right"></i>
               </button>
             `;
@@ -1229,42 +1085,43 @@ function renderLotCards(lots) {
   });
 }
 
- window.handleLotCardClick = function (lotNumber) {
+window.handleLotCardClick = function (lotNumber) {
   reiniciarMenu();
 
   // Buscar la entidad del lote en el datasource de Cesium
   const allEntities = viewer.dataSources.get(0).entities.values;
-  
+
   // Extraer manzana y lote del lot.number
   const lot = lotNumber; // "Mz. E - Lote 15"
   const manzanaMatch = lot.match(/Mz\.\s*([A-Z]+)/);
   const loteMatch = lot.match(/Lote\s*(\d+)/);
-  
+
   const manzana = manzanaMatch ? manzanaMatch[1] : ""; // "E"
   const loteNum = loteMatch ? loteMatch[1] : ""; // "15"
 
-
   // Buscar por manzana y lote en las propiedades
-  const lotEntity = allEntities.find(
-    entity => {
-      if (!entity.properties) return false;
-      
-      const entityManzana = entity.properties.manzana ? entity.properties.manzana._value : "";
-      const entityLote = entity.properties.lote ? entity.properties.lote._value : "";
-      
-      console.log('Comparando:', {
-        buscandoManzana: manzana,
-        buscandoLote: loteNum,
-        entityManzana: entityManzana,
-        entityLote: entityLote
-      });
-      
-      return entityManzana === manzana && entityLote === loteNum;
-    }
-  );
-  
-  console.log('Entidad encontrada:', lotEntity);
-  
+  const lotEntity = allEntities.find((entity) => {
+    if (!entity.properties) return false;
+
+    const entityManzana = entity.properties.manzana
+      ? entity.properties.manzana._value
+      : "";
+    const entityLote = entity.properties.lote
+      ? entity.properties.lote._value
+      : "";
+
+    console.log("Comparando:", {
+      buscandoManzana: manzana,
+      buscandoLote: loteNum,
+      entityManzana: entityManzana,
+      entityLote: entityLote,
+    });
+
+    return entityManzana === manzana && entityLote === loteNum;
+  });
+
+  console.log("Entidad encontrada:", lotEntity);
+
   if (lotEntity) {
     // Deseleccionar el lote anteriormente seleccionado
     if (selected) {
@@ -1275,7 +1132,8 @@ function renderLotCards(lots) {
 
     // Seleccionar el nuevo lote
     selected = lotEntity;
-    selectedOriginalMaterial = lotEntity._baseMaterial || lotEntity.polygon.material;
+    selectedOriginalMaterial =
+      lotEntity._baseMaterial || lotEntity.polygon.material;
     lotEntity.polygon.material = modeSelected;
 
     // Volar hacia el lote
@@ -1285,7 +1143,7 @@ function renderLotCards(lots) {
         0,
         window.Cesium.Math.toRadians(-45),
         500
-      )
+      ),
     });
 
     // Disparar evento para mostrar modal del lote
@@ -1302,16 +1160,21 @@ function renderLotCards(lots) {
       })
     );
   } else {
-    console.error('No se encontró la entidad del lote con ID:', lotId);
-    console.log('Primeras 5 entidades con propiedades:', allEntities.slice(0, 5).map(e => ({
-      id: e.id,
-      properties: e.properties ? Object.keys(e.properties).reduce((acc, key) => {
-        acc[key] = e.properties[key]._value;
-        return acc;
-      }, {}) : null
-    })));
+    console.error("No se encontró la entidad del lote con ID:", lotId);
+    console.log(
+      "Primeras 5 entidades con propiedades:",
+      allEntities.slice(0, 5).map((e) => ({
+        id: e.id,
+        properties: e.properties
+          ? Object.keys(e.properties).reduce((acc, key) => {
+              acc[key] = e.properties[key]._value;
+              return acc;
+            }, {})
+          : null,
+      }))
+    );
   }
-}
+};
 
 function loadLotData() {
   try {
@@ -1341,6 +1204,86 @@ function loadLotData() {
   }
 }
 
+// Entorno
+
+async function handleEntorno() {
+  reiniciarMenu();
+
+  // Activate environment button
+  const entornoBtn = document.getElementById("entorno");
+  if (entornoBtn) entornoBtn.classList.add("active");
+
+  // Ensure button container is visible
+  const aroundButtonsContainer = document.getElementById(
+    "aroundButtonsContainer"
+  );
+  if (aroundButtonsContainer) {
+    aroundButtonsContainer.style.display = "flex";
+  }
+
+  // Dispatch event to show environment buttons
+  window.dispatchEvent(new CustomEvent("openEntornoButtons"));
+
+  // Load all markers from entorno.geojson
+  await loadEntornoMarkers();
+
+  // Activate "Todos" button initially
+  updateEntornoButtonsState("Todos");
+}
+
+// Function to return to initial environment state (without closing everything)
+function resetEntornoToInitialState() {
+  // Close modal if open
+  const aroundModalOverlay = document.getElementById("aroundModalOverlay");
+  if (aroundModalOverlay) {
+    aroundModalOverlay.style.display = "none";
+  }
+
+  // Ensure button container is visible
+  const aroundButtonsContainer = document.getElementById(
+    "aroundButtonsContainer"
+  );
+  if (aroundButtonsContainer) {
+    aroundButtonsContainer.style.display = "flex";
+  }
+
+  // Clear previous route
+  clearRoute();
+
+  // Clear existing markers
+  const entitiesToRemove = viewer.entities.values.filter(
+    (entity) => entity.id && entity.id.startsWith("marcador_entorno_")
+  );
+  entitiesToRemove.forEach((entity) => viewer.entities.remove(entity));
+
+  // Reload all markers
+  loadEntornoMarkers();
+
+  // Fly to show all markers
+  const positions = [];
+  viewer.entities.values.forEach((entity) => {
+    if (entity.id && entity.id.startsWith("marcador_entorno_")) {
+      const position = entity.position.getValue(viewer.clock.currentTime);
+      if (position) {
+        positions.push(position);
+      }
+    }
+  });
+
+  if (positions.length > 0) {
+    flyToView(positions);
+  }
+
+  // Activate "Todos" button
+  updateEntornoButtonsState("Todos");
+}
+// Clear route
+function clearRoute() {
+  if (window.currentRoute) {
+    viewer.entities.remove(window.currentRoute);
+    window.currentRoute = null;
+  }
+}
 // Function to filter environment markers by type
 async function filterEntornoByType(tipo) {
   // Close location modal if open
@@ -1380,8 +1323,8 @@ async function loadEntornoMarkers(filterType = null) {
       // Filtrar features por tipo si se especifica
       const filteredFeatures = filterType
         ? entornoData.features.filter(
-          (feature) => feature.properties.tipo === filterType
-        )
+            (feature) => feature.properties.tipo === filterType
+          )
         : entornoData.features;
 
       filteredFeatures.forEach((feature) => {
@@ -1518,9 +1461,9 @@ async function calculateRoute(token, start, end, tipo = null) {
 
     const response = await fetch(
       `https://api.openrouteservice.org/v2/directions/driving-car?` +
-      `api_key=${openRouteServiceKey}&` +
-      `start=${start[0]},${start[1]}&` +
-      `end=${end[0]},${end[1]}`
+        `api_key=${openRouteServiceKey}&` +
+        `start=${start[0]},${start[1]}&` +
+        `end=${end[0]},${end[1]}`
     );
 
     if (!response.ok) {
@@ -1615,6 +1558,35 @@ function updateEntornoButtonsState(activeType) {
   });
 }
 
+// Video
+
+function handleVideo() {
+  reiniciarMenu();
+
+  // Activate video button
+  const videoBtn = document.getElementById("video");
+  if (videoBtn) videoBtn.classList.add("active");
+
+  // Dispatch event to show video overlay
+  window.dispatchEvent(new CustomEvent("openVideoOverlay"));
+}
+
+// Function to close video
+function closeVideoOverlay() {
+  // Pause and reset video if exists
+  const video = document.getElementById("videoPlayer");
+  if (video) {
+    video.pause();
+    video.currentTime = 0;
+  }
+
+  // Deactivate video button
+  const videoBtn = document.getElementById("video");
+  if (videoBtn) {
+    videoBtn.classList.remove("active");
+  }
+}
+
 // Expose additional functions globally
 window.hoverMarcadores = hoverMarcadores;
 window.clearRoute = clearRoute;
@@ -1642,10 +1614,7 @@ window.calculateRoute = calculateRoute;
 window.updateEntornoButtonsState = updateEntornoButtonsState;
 window.resetEntornoToInitialState = resetEntornoToInitialState;
 window.closeVideoOverlay = closeVideoOverlay;
-
-
 window.flyToAreaComun = flyToAreaComun;
-
 
 // Bottom bar
 
@@ -1751,9 +1720,7 @@ function toggleGrid() {
   const btnGrid = document.getElementById("grid");
 
   if (!lotesDataSource) return;
-  const entitiesAll = lotesDataSource.entities.values.filter(
-    (e) => e.polygon
-  );
+  const entitiesAll = lotesDataSource.entities.values.filter((e) => e.polygon);
   entitiesAll.forEach((e) => {
     console.log(e.properties.manzana._value);
     console.log(e.properties.lote._value);
