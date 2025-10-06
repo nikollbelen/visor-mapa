@@ -1,0 +1,234 @@
+/* Contact Modal Styles - Basado en el diseño de LotInfoModal */
+.contact-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999; /* Mayor que lot-modal para estar encima */
+  animation: contactFadeIn 0.3s ease-out;
+  transform: rotateY(180deg) !important; /* Forzar que no herede transformaciones del padre */
+
+}
+
+.contact-modal {
+  background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  animation: contactSlideIn 0.3s ease-out;
+  border: 2px solid #333;
+  color: white;
+  transform: none !important; /* Asegurar que no herede transformaciones */
+}
+
+.contact-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 2px solid #333;
+  background: linear-gradient(135deg, #333 0%, #222 100%);
+  border-radius: 12px 12px 0 0;
+}
+
+.contact-modal-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: white;
+}
+
+.contact-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #ccc;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 6px;
+  transition: all 0.3s;
+}
+
+.contact-modal-close:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  transform: scale(1.1);
+}
+
+.contact-modal-content {
+  padding: 24px;
+  background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%);
+}
+
+.contact-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.contact-form .form-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  border-bottom: 1px solid #444;
+  padding-bottom: 8px;
+}
+
+.contact-form .input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.contact-form .form-input {
+  padding: 12px 16px;
+  border: 2px solid #444;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  transition: all 0.3s;
+}
+
+.contact-form .form-input::placeholder {
+  color: #aaa;
+}
+
+.contact-form .form-input:focus {
+  outline: none;
+  border-color: #10b981;
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+.contact-form .form-input.error {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.contact-form .form-input.error:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+}
+
+.error-message {
+  color: #ef4444;
+  font-size: 0.75rem;
+  margin-top: 4px;
+  margin-bottom: 8px;
+}
+
+.contact-modal .save-content {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.contact-modal .save-content p {
+  margin: 0 0 20px 0;
+  font-size: 1rem;
+  color: #ccc;
+}
+
+.contact-modal .save-content .form-section {
+  text-align: left;
+  margin-top: 20px;
+}
+
+.contact-modal .save-content .form-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  border-bottom: 1px solid #444;
+  padding-bottom: 8px;
+}
+
+.contact-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px 24px;
+  border-top: 2px solid #333;
+  background: linear-gradient(135deg, #333 0%, #222 100%);
+  border-radius: 0 0 12px 12px;
+}
+
+.contact-modal .btn-secondary {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #444 0%, #333 100%);
+  color: white;
+  border: 2px solid #555;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.contact-modal .btn-secondary:hover {
+  background: linear-gradient(135deg, #555 0%, #444 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.contact-modal .btn-primary {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #10b981 0%, #0ea472 100%);
+  color: white;
+  border: 2px solid #10b981;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.contact-modal .btn-primary:hover {
+  background: linear-gradient(135deg, #0ea472 0%, #0d8a5f 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
+}
+
+/* Animaciones específicas para ContactModal - Sin volteo */
+@keyframes contactFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes contactSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Responsive específico para ContactModal */
+@media (max-width: 640px) {
+  .contact-modal {
+    width: 95%;
+    margin: 20px;
+  }
+  
+  .contact-modal-header,
+  .contact-modal-content,
+  .contact-modal-footer {
+    padding: 16px;
+  }
+}

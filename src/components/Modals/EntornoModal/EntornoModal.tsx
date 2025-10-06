@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './EntornoModal.css';
 
 interface EntornoModalProps {
@@ -8,6 +8,20 @@ interface EntornoModalProps {
 }
 
 const EntornoModal = ({ isVisible = false, onClose, entornoData }: EntornoModalProps) => {
+  const [isMobile, setIsMobile] = useState(false);
+  const [isHidden, setIsHidden] = useState(false);
+
+  // Detectar si es móvil o tablet
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth <= 1024);
+    };
+
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
   
   // Datos por defecto si no hay datos del entorno
   const defaultEntornoData = {
@@ -29,8 +43,22 @@ const EntornoModal = ({ isVisible = false, onClose, entornoData }: EntornoModalP
   const [timeEstimate, setTimeEstimate] = useState('');
 
   const handleClose = () => {
+    // Resetear todo cuando se cierra completamente
+    setIsHidden(false);
     onClose?.();
   };
+
+  const handleShow = () => {
+    // Mostrar el modal nuevamente
+    setIsHidden(false);
+  };
+
+  // Ocultar el botón de reabrir cuando se cambia de sección
+  useEffect(() => {
+    if (!isVisible) {
+      setIsHidden(false);
+    }
+  }, [isVisible]);
 
   // No renderizar si no es visible
   if (!isVisible) return null;
@@ -40,6 +68,9 @@ const EntornoModal = ({ isVisible = false, onClose, entornoData }: EntornoModalP
     
     // Llamar a la función de Cesium para calcular la ruta
     if (window.calculateRoute && data.coordinates) {
+      // Pasar el token desde las variables de entorno
+      const token = import.meta.env.VITE_OPEN_ROUTE_SERVICE_KEY;
+
       const startLonLat = [-71.8968, -17.1000]; // Coordenadas de inicio
       
       // Las coordenadas ya vienen como array [longitud, latitud] desde el JavaScript
@@ -47,7 +78,7 @@ const EntornoModal = ({ isVisible = false, onClose, entornoData }: EntornoModalP
         ? data.coordinates 
         : data.coordinates.split(',').map((coord: string) => parseFloat(coord.trim()));
       
-      const result = await window.calculateRoute(startLonLat, endCoords, data.tipo);
+      const result = await window.calculateRoute(token, startLonLat, endCoords, data.tipo);
       
       if (result && result.success) {
         // Actualizar el tiempo estimado en el estado
@@ -55,6 +86,13 @@ const EntornoModal = ({ isVisible = false, onClose, entornoData }: EntornoModalP
       } else {
         setTimeEstimate('Error al calcular la ruta');
       }
+    }
+
+    // En móviles ocultar el modal después de calcular la ruta
+    if (isMobile) {
+      setTimeout(() => {
+        setIsHidden(true);
+      }, 1000);
     }
   };
 
@@ -64,10 +102,24 @@ const EntornoModal = ({ isVisible = false, onClose, entornoData }: EntornoModalP
   }
 
   return (
-    <div className="around-modal background-container border-container" id="aroundModalOverlay" style={{ display: 'flex' }}>
-      <button className="close-btn" id="closeAroundModal" onClick={handleClose}>
-        <i className="fas fa-times"></i>
-      </button>
+    <>
+      {/* Botón para reabrir el modal en móviles cuando está oculto */}
+      {isMobile && isHidden && (
+        <button 
+          className="reopen-entorno-modal-btn"
+          onClick={handleShow}
+          title="Reabrir información de entorno"
+        >
+          <i className="fas fa-map-marker-alt"></i>
+        </button>
+      )}
+
+      {/* Modal principal */}
+      {!isHidden && (
+        <div className={`around-modal background-container border-container ${isMobile ? 'mobile-modal' : ''}`} id="aroundModalOverlay" style={{ display: 'flex' }}>
+          <button className="close-btn" id="closeAroundModal" onClick={handleClose}>
+            <i className="fas fa-times"></i>
+          </button>
       
       <div className="around-modal-header">
         <div className="around-modal-title">
@@ -118,6 +170,8 @@ const EntornoModal = ({ isVisible = false, onClose, entornoData }: EntornoModalP
         </div>
       </div>
     </div>
+      )}
+    </>
   );
 };
 

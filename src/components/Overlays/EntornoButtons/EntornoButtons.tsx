@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './EntornoButtons.css';
 
 interface EntornoButtonsProps {
@@ -7,6 +7,36 @@ interface EntornoButtonsProps {
 
 const EntornoButtons = ({ isVisible = false }: EntornoButtonsProps) => {
   const [activeButton, setActiveButton] = useState('todos');
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detectar si es móvil o tablet
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth <= 1024);
+    };
+
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
+  // Controlar la visibilidad del desplegable de status buttons
+  useEffect(() => {
+    if (isMobile && isVisible) {
+      // Ocultar el desplegable de status buttons cuando está en entorno
+      const statusContainer = document.querySelector('.mobile-status-container');
+      if (statusContainer) {
+        (statusContainer as HTMLElement).style.display = 'none';
+      }
+    } else if (isMobile && !isVisible) {
+      // Mostrar el desplegable de status buttons cuando sale de entorno
+      const statusContainer = document.querySelector('.mobile-status-container');
+      if (statusContainer) {
+        (statusContainer as HTMLElement).style.display = 'block';
+      }
+    }
+  }, [isMobile, isVisible]);
 
   const entornoButtons = [
     { id: 'todos', icon: '/images/sidebar/icon_entorno.svg', alt: 'Todos', text: 'Todos' },
@@ -41,7 +71,7 @@ const EntornoButtons = ({ isVisible = false }: EntornoButtonsProps) => {
   if (!isVisible) return null;
 
   return (
-    <div className="around-buttons-container" id="aroundButtonsContainer" style={{ display: 'flex' }}>
+    <div className={`around-buttons-container ${isMobile ? 'mobile-entorno' : ''}`} id="aroundButtonsContainer" style={{ display: 'flex' }}>
       {entornoButtons.map((button) => (
         <div 
           key={button.id}

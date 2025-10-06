@@ -4,6 +4,20 @@ import './Sidebar.css';
 
 const Sidebar = () => {
   const [activeItem, setActiveItem] = useState<string | null>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detectar si es móvil o tablet
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth <= 1024);
+    };
+
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
 
   // Sincronizar estado de React con el estado real del DOM
   useEffect(() => {
@@ -30,6 +44,10 @@ const Sidebar = () => {
     return () => clearInterval(interval);
   }, [activeItem]);
 
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
+  };
+
   const handleItemClick = (itemId: string) => {
     // Verificar el estado real del botón en el DOM
     const buttonElement = document.getElementById(itemId);
@@ -42,11 +60,20 @@ const Sidebar = () => {
       if (window.reiniciarMenu) {
         window.reiniciarMenu();
       }
+      // Cerrar menú en móvil si está abierto
+      if (isMobile) {
+        setIsMenuOpen(false);
+      }
       return;
     }
 
     // Activar el nuevo item
     setActiveItem(itemId);
+    
+    // Cerrar menú en móvil después de seleccionar un item
+    if (isMobile) {
+      setIsMenuOpen(false);
+    }
 
     // Llamar a la función correspondiente de Cesium
     switch (itemId) {
@@ -114,27 +141,73 @@ const Sidebar = () => {
   ];
 
   return (
-    <nav className="sidebar background-container border-container">
-      <div className="sidebar-logo">
-        <img src="/images/logo_mikonos.png" alt="Mykonos Residencial Playa" />
-      </div>
-
-      <div className="sidebar-container">
-        <div className="sidebar-items">
-          {sidebarItems.map((item) => (
-            <SidebarItem
-              key={item.id}
-              id={item.id}
-              icon={item.icon}
-              alt={item.alt}
-              text={item.text}
-              isActive={activeItem === item.id}
-              onClick={handleItemClick}
-            />
-          ))}
+    <>
+      {/* Barra superior para móvil */}
+      {isMobile && (
+        <div className="mobile-top-bar">
+          <div className="mobile-logo">
+            <img src="/images/logo_mikonos.png" alt="Mykonos Residencial Playa" />
+          </div>
+          <button 
+            className="hamburger-button"
+            onClick={toggleMenu}
+            aria-label="Toggle menu"
+          >
+            <div className={`hamburger-icon ${isMenuOpen ? 'open' : ''}`}>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </button>
         </div>
-      </div>
-    </nav>
+      )}
+
+      {/* Sidebar normal para desktop */}
+      {!isMobile && (
+        <nav className="sidebar background-container border-container">
+          <div className="sidebar-logo">
+            <img src="/images/logo_mikonos.png" alt="Mykonos Residencial Playa" />
+          </div>
+
+          <div className="sidebar-container">
+            <div className="sidebar-items">
+              {sidebarItems.map((item) => (
+                <SidebarItem
+                  key={item.id}
+                  id={item.id}
+                  icon={item.icon}
+                  alt={item.alt}
+                  text={item.text}
+                  isActive={activeItem === item.id}
+                  onClick={handleItemClick}
+                />
+              ))}
+            </div>
+          </div>
+        </nav>
+      )}
+
+      {/* Menú desplegable para móvil */}
+      {isMobile && isMenuOpen && (
+        <div className="mobile-menu-overlay">
+          <div className="mobile-menu-content">
+            <div className="mobile-menu-items">
+              {sidebarItems.map((item) => (
+                <SidebarItem
+                  key={item.id}
+                  id={item.id}
+                  icon={item.icon}
+                  alt={item.alt}
+                  text={item.text}
+                  isActive={activeItem === item.id}
+                  onClick={handleItemClick}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

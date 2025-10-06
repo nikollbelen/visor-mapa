@@ -545,3 +545,60 @@
   font-size: 14px;
   font-weight: 600;
 }
+
+.lot-card-view-more-btn {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.lot-card-view-more-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.lot-card-view-more-btn i {
+  font-size: 12px;
+}
+
+/* ========================================
+   MOBILE STYLES
+   ======================================== */
+
+/* Modal centrado en móviles */
+.mobile-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  right: auto;
+  transform: translate(-50%, -50%);
+  width: 90vw;
+  max-width: 500px;
+  max-height: 80vh;
+}
+
+/* Media queries para responsive */
+@media (max-width: 1024px) {
+  .lot-search-modal:not(.mobile-modal) {
+    display: none;
+  }
+}
+
+@media (min-width: 1025px) {
+  .mobile-modal {
+    display: none;
+  }
+}

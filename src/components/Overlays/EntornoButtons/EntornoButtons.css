@@ -56,3 +56,55 @@
   font-weight: 500;
   white-space: nowrap;
 }
+
+/* ========================================
+   MOBILE STYLES
+   ======================================== */
+
+/* Botones de entorno pegados abajo en móviles */
+.mobile-entorno {
+  position: fixed;
+  bottom: 80px; /* Arriba del BottomBar */
+  left: 0;
+  right: 0;
+  top: auto;
+  transform: none;
+  justify-content: center;
+  padding: 0 20px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mobile-entorno .around-button {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 8px;
+  font-size: 12px;
+  height: auto;
+  justify-content: center;
+  text-align: center;
+  flex-direction: column;
+  gap: 0;
+}
+
+.mobile-entorno .around-button img {
+  width: 24px;
+  height: 24px;
+}
+
+.mobile-entorno .around-button span {
+  display: none; /* Ocultar texto en móviles */
+}
+
+/* Media queries para responsive */
+@media (max-width: 1024px) {
+  .around-buttons-container:not(.mobile-entorno) {
+    display: none;
+  }
+}
+
+@media (min-width: 1025px) {
+  .mobile-entorno {
+    display: none;
+  }
+}

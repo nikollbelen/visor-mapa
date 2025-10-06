@@ -185,3 +185,118 @@
   border-color: rgba(255, 255, 255, 0.3);
   transform: translateY(-1px);
 }
+
+/* ========================================
+   MOBILE STYLES
+   ======================================== */
+
+/* Modal centrado en móviles */
+.mobile-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  right: auto;
+  transform: translate(-50%, -50%);
+  width: 90vw;
+  max-width: 500px;
+  max-height: 80vh;
+}
+
+/* Grid de una columna en móviles */
+.mobile-grid {
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+/* Card horizontal en móviles */
+.mobile-card {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 16px;
+  gap: 16px;
+}
+
+.mobile-card .common-areas-card-image {
+  width: 120px;
+  height: 80px;
+  margin-bottom: 0;
+  flex-shrink: 0;
+  border-radius: 8px;
+}
+
+.mobile-card .common-areas-card-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mobile-card .common-areas-card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+  margin-bottom: 0;
+  text-align: left;
+}
+
+.mobile-card .common-areas-card-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  width: 100%;
+}
+
+.mobile-card .common-areas-card-button {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 12px;
+  min-width: 0;
+}
+
+/* Botón para reabrir el modal en móviles */
+.reopen-areas-modal-btn {
+  position: fixed;
+  top: 80px; /* Debajo de la barra del sidebar */
+  left: 20px;
+  z-index: 1000;
+  background: #0e0e0e;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 12px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.reopen-areas-modal-btn:hover {
+  background: #1a1a1a;
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+.reopen-areas-modal-btn i {
+  font-size: 16px;
+}
+
+/* Media queries para responsive */
+@media (max-width: 1024px) {
+  .common-areas-modal:not(.mobile-modal) {
+    display: none;
+  }
+}
+
+@media (min-width: 1025px) {
+  .mobile-modal {
+    display: none;
+  }
+  
+  .reopen-areas-modal-btn {
+    display: none;
+  }
+}

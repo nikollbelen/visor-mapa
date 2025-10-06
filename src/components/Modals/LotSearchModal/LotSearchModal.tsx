@@ -13,6 +13,19 @@ const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => 
   const [areaMax, setAreaMax] = useState(1000); // Valor inicial más alto
   const [sortBy, setSortBy] = useState('area-asc');
   const [status, setStatus] = useState('disponible');
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detectar si es móvil o tablet
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth <= 1024);
+    };
+
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
 
   // Actualizar valores máximos y mínimos cuando se abre el modal
   useEffect(() => {
@@ -230,7 +243,7 @@ const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => 
   if (!isVisible) return null;
 
   return (
-    <div className="lot-search-modal background-container border-container" id="lotSearchModalOverlay">
+    <div className={`lot-search-modal background-container border-container ${isMobile ? 'mobile-modal' : ''}`} id="lotSearchModalOverlay">
       <button className="close-btn" id="closeLotSearchModal" onClick={handleClose}>
         <i className="fas fa-times"></i>
       </button>

@@ -1,9 +1,27 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import BottomBarItem from './BottomBarItem';
 import './BottomBar.css';
 
 const BottomBar = () => {
   const [activeButton, setActiveButton] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
+
+  // Detectar si es móvil o tablet
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth <= 1024);
+    };
+
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
+  const toggleStatusMenu = () => {
+    setIsStatusMenuOpen(!isStatusMenuOpen);
+  };
 
   const handleButtonClick = (buttonId: string) => {
     
@@ -53,13 +71,47 @@ const BottomBar = () => {
   const statusButtons = [
     { id: 'disponible', text: 'Disponible', type: 'disponible' },
     { id: 'reservado', text: 'Reservado', type: 'reservado' },
-    { id: 'vendido', text: 'Vendido', type: 'vendido' }
+    { id: 'vendido', text: 'Vendido', type: 'vendido' },
+    { id: 'negociacion', text: 'En negociación', type: 'negociacion' }
   ];
 
   return (
-    <div className="bottombar">
+    <div className={`bottombar ${isMobile ? 'mobile-bottombar' : ''}`}>
+      {/* Status buttons - desplegable en móvil */}
+      {isMobile ? (
+        <div className="mobile-status-container">
+          <button 
+            className="mobile-status-toggle"
+            onClick={toggleStatusMenu}
+          >
+            <span>Ver leyenda</span>
+            <i className={`toggle-icon fas ${isStatusMenuOpen ? 'fa-chevron-up' : 'fa-chevron-down'}`}></i>
+          </button>
+          
+          {isStatusMenuOpen && (
+            <div className="mobile-status-menu">
+              {statusButtons.map((button) => (
+                <div key={button.id} className={`mobile-status-item ${button.type}`}>
+                  <span className="mobile-status-indicator"></span>
+                  <span className="mobile-status-text">{button.text}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="bottombar-status-buttons">
+          {statusButtons.map((button) => (
+            <button key={button.id} className={`bottombar-status-button ${button.type}`}>
+              <span className="bottombar-status-indicator"></span>
+              {button.text}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Icon bar */}
-      <div className="bottombar-icon-toolbar background-container border-container">
+      <div className={`bottombar-icon-toolbar background-container border-container ${isMobile ? 'mobile-icon-toolbar' : ''}`}>
         {iconButtons.map((button, index) => (
           <div key={button.id} style={{ display: 'flex', alignItems: 'center' }}>
             <BottomBarItem
@@ -71,16 +123,6 @@ const BottomBar = () => {
             />
             {index < iconButtons.length - 1 && <div className="bottombar-divider"></div>}
           </div>
-        ))}
-      </div>
-
-      {/* Status buttons */}
-      <div className="bottombar-status-buttons">
-        {statusButtons.map((button) => (
-          <button key={button.id} className={`bottombar-status-button ${button.type}`}>
-            <span className="bottombar-status-indicator"></span>
-            {button.text}
-          </button>
         ))}
       </div>
     </div>

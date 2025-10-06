@@ -69,3 +69,137 @@
   gap: 0;
   width: 100%;
 }
+
+/* ========================================
+   MOBILE TOP BAR STYLES
+   ======================================== */
+
+/* Barra superior para móvil */
+.mobile-top-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: #0e0e0e;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  z-index: 1000;
+  backdrop-filter: blur(10px);
+}
+
+.mobile-logo {
+  display: flex;
+  align-items: center;
+}
+
+.mobile-logo img {
+  height: 40px;
+  width: auto;
+}
+
+/* Botón hamburguesa */
+.hamburger-button {
+  background: transparent;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.hamburger-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.hamburger-icon {
+  width: 24px;
+  height: 18px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.hamburger-icon span {
+  display: block;
+  height: 2px;
+  width: 100%;
+  background: white;
+  border-radius: 1px;
+  transition: all 0.3s ease;
+  transform-origin: center;
+}
+
+.hamburger-icon.open span:nth-child(1) {
+  transform: rotate(45deg) translate(5px, 5px);
+}
+
+.hamburger-icon.open span:nth-child(2) {
+  opacity: 0;
+}
+
+.hamburger-icon.open span:nth-child(3) {
+  transform: rotate(-45deg) translate(7px, -6px);
+}
+
+/* Menú desplegable para móvil */
+.mobile-menu-overlay {
+  position: fixed;
+  top: 60px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  z-index: 999;
+  animation: slideDown 0.3s ease;
+}
+
+.mobile-menu-content {
+  background: #0e0e0e;
+  border-radius: 0 0 15px 15px;
+  padding: 20px;
+  margin: 0 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.mobile-menu-items {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Media queries para responsive */
+@media (max-width: 1024px) {
+  .sidebar {
+    display: none;
+  }
+}
+
+@media (min-width: 1025px) {
+  .mobile-top-bar {
+    display: none;
+  }
+  
+  .mobile-menu-overlay {
+    display: none;
+  }
+}
