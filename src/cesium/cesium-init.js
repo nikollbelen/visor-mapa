@@ -44,9 +44,9 @@ function getLabelFont() {
   const deviceType = getDeviceType();
   switch (deviceType) {
     case 'mobile':
-      return "700 6pt Arial, sans-serif";
+      return "700 8pt Arial, sans-serif";
     case 'tablet':
-      return "800 7pt Arial, sans-serif";
+      return "800 8pt Arial, sans-serif";
     case 'desktop':
     default:
       return "900 9pt Arial, sans-serif";
@@ -70,9 +70,9 @@ function getLabelOutlineWidth() {
   const deviceType = getDeviceType();
   switch (deviceType) {
     case 'mobile':
-      return 1;
-    case 'tablet':
       return 1.5;
+    case 'tablet':
+      return 2;
     case 'desktop':
     default:
       return 2;

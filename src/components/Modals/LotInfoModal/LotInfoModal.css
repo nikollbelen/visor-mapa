@@ -15,7 +15,7 @@
   max-height: 80vh;
   overflow-y: auto;
   pointer-events: auto;
-  z-index: 998;
+  z-index: 1001;
   display: flex;
   flex-direction: column;
   transform-style: preserve-3d;
@@ -24,6 +24,7 @@
 
 /* Animación 3D de flip */
 .lot-modal.flip {
+  left: 0;
   transform: rotateY(180deg) translateY(-50%);
 }
 
@@ -56,6 +57,79 @@
 .lot-modal-back .lot-modal-content {
   overflow-y: auto;
   max-height: calc(80vh - 4rem);
+}
+
+/* =========================
+   RESPONSIVE: Tablets
+   ========================= */
+@media (max-width: 1024px) {
+  .lot-modal {
+    left: 50%;
+    right: auto;
+    transform: translate(-50%, -50%);
+    width: 90vw;
+    min-width: unset;
+    padding: 1.5rem 1.5rem;
+    max-height: 85vh;
+  }
+
+  .lot-modal-back .lot-modal-content {
+    max-height: calc(85vh - 3rem);
+  }
+
+  .schedule-table th,
+  .schedule-table td {
+    font-size: 11px;
+    padding: 8px 6px;
+  }
+
+  .schedule-table input {
+    width: 100%;
+    font-size: 11px;
+  }
+
+  .function-buttons {
+    gap: 10px;
+  }
+}
+
+/* =========================
+   RESPONSIVE: Móviles
+   ========================= */
+@media (max-width: 640px) {
+  .lot-modal {
+    width: 96vw;
+    padding: 1rem 1rem;
+    max-height: 88vh;
+  }
+
+  .lot-modal-logo img {
+    width: 90px;
+  }
+
+  .lot-modal-back-link span {
+    font-size: 13px;
+  }
+
+  .schedule-table th,
+  .schedule-table td {
+    font-size: 10px;
+    padding: 6px 4px;
+  }
+
+  .schedule-table input {
+    font-size: 10px;
+    padding: 5px 6px;
+  }
+
+  .function-buttons {
+    flex-direction: column;
+  }
+
+  .function-btn {
+    width: 100%;
+    padding: 10px 16px;
+  }
 }
 
 .lot-modal-back-link {
@@ -526,6 +600,12 @@
   gap: 10px;
 }
 
+@media (max-width: 1024px) {
+  .input-group {
+    grid-template-columns: 1fr;
+  }
+}
+
 .form-input {
   background: #2d2d2d;
   color: white;
@@ -909,8 +989,34 @@
 
 /* Responsive */
 @media (max-width: 768px) {
-  .quotation-table-header,
-  .quotation-table-row,
+  /* Ocultar encabezado y apilar filas como tarjetas */
+  .quotation-table-header { display: none; }
+  .quotation-table { display: flex; flex-direction: column; gap: 10px; }
+  .quotation-table-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    padding: 12px 12px;
+    border: 1px solid #333;
+    border-radius: 8px;
+    background: #1f1f1f;
+  }
+  .quotation-cell {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 0;
+    font-size: 12px;
+  }
+  .quotation-cell.item-name { font-size: 13px; font-weight: 600; }
+  .quotation-cell::before { color: #9ca3af; font-weight: 500; }
+  .quotation-table-row .quotation-cell:nth-child(1)::before { content: "Item"; }
+  .quotation-table-row .quotation-cell:nth-child(2)::before { content: "Etapa"; }
+  .quotation-table-row .quotation-cell:nth-child(3)::before { content: "Unidad"; }
+  .quotation-table-row .quotation-cell:nth-child(4)::before { content: "Monto"; }
+  .quotation-table-row .quotation-cell:nth-child(5)::before { content: "Descuento"; }
+
+  /* Schedule responsive ya existente */
   .schedule-table-header,
   .schedule-table-row {
     grid-template-columns: 1fr;
@@ -920,4 +1026,19 @@
   .functionality-buttons {
     flex-direction: column;
   }
+}
+
+@media (max-width: 1024px) and (min-width: 769px) {
+  /* Tablet: compactar columnas */
+  .quotation-table-header {
+    grid-template-columns: 0.9fr 1fr 0.7fr 1fr 0.9fr;
+    padding: 10px 16px;
+    font-size: 12px;
+  }
+  .quotation-table-row {
+    grid-template-columns: 0.9fr 1fr 0.7fr 1fr 0.9fr;
+    gap: 8px;
+    padding: 12px 16px;
+  }
+  .quotation-cell { font-size: 12px; }
 }
