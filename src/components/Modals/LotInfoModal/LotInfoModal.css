@@ -154,8 +154,7 @@
   padding: 8px 16px;
   border-radius: 8px;
   font-size: 14px;
-  font-weight: 600;
-  text-transform: uppercase;
+  text-transform: capitalize;
   white-space: nowrap;
 }
 
@@ -280,9 +279,6 @@
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }
 
-.lot-whatsapp-btn i {
-  font-size: 20px;
-}
 
 /* ========================================
    ESTILOS PARA LA COTIZACIÓN (CARA TRASERA) - DISEÑO EXACTO
@@ -545,12 +541,13 @@
 }
 
 .date-input {
-  background: #374151;
-  border: 1px solid #4b5563;
-  border-radius: 6px;
-  color: white;
-  padding: 8px 12px;
-  font-size: 14px;
+  background: #2d2d2d;
+    color: white;
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 13px;
+    outline: none;
   transition: border-color 0.2s ease;
 }
 
@@ -641,8 +638,8 @@
 
 /* Date validation styles */
 .date-input.error {
+  color: #ef4444;
   border-color: #ef4444;
-  background-color: #fef2f2;
 }
 
 .date-error-message {

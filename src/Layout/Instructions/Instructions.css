@@ -103,6 +103,12 @@
 
 /* Media queries for mobile */
 @media (max-width: 768px) {
+  .instructions-overlay {
+    background-color: rgba(14, 14, 14, 0.9);
+  }
+  .instructions-overlay h2 {
+    margin-bottom: 20px;
+  }
   /* Hide desktop instructions */
   .instructions-container {
     display: none;
@@ -111,6 +117,7 @@
   /* Show mobile instructions */
   .instructions-container-mobile {
     display: grid;
+    margin-bottom: 20px;
   }
 
   .hand-icon {
@@ -154,7 +161,11 @@
 }
 
 @media (max-width: 480px) {
+  .instructions-overlay h2 {
+    margin-bottom: 20px;
+  }
   .instructions-container-mobile {
+    margin-bottom: 20px;
     gap: 20px;
     /* More space between elements */
   }

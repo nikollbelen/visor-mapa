@@ -232,11 +232,16 @@ const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => 
   };
 
   const handleStatusChange = (newStatus: string) => {
+    console.log("Cambiando estado de:", status, "a:", newStatus);
     setStatus(newStatus);
-    // Llamar a la función de Cesium para actualizar los datos
-    if (window.loadLotData) {
-      window.loadLotData();
-    }
+    
+    // Forzar re-render inmediato de los botones
+    setTimeout(() => {
+      // Llamar a la función de Cesium para actualizar los datos
+      if (window.loadLotData) {
+        window.loadLotData();
+      }
+    }, 0);
   };
 
   // No renderizar si no es visible
@@ -352,11 +357,12 @@ const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => 
           
           <div className="filter-section">
             <label className="filter-label">Estado</label>
-            <div className="status-buttons">
+            <div className="status-buttons" key={`status-buttons-${status}`}>
               <button 
                 className={`status-btn ${status === 'vendido' ? 'active' : ''}`}
                 data-status="vendido"
                 onClick={() => handleStatusChange('vendido')}
+                key={`vendido-${status}`}
               >
                 Vendido
               </button>
@@ -364,6 +370,7 @@ const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => 
                 className={`status-btn ${status === 'reservado' ? 'active' : ''}`}
                 data-status="reservado"
                 onClick={() => handleStatusChange('reservado')}
+                key={`reservado-${status}`}
               >
                 Reservado
               </button>
@@ -371,6 +378,7 @@ const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => 
                 className={`status-btn ${status === 'disponible' ? 'active' : ''}`}
                 data-status="disponible"
                 onClick={() => handleStatusChange('disponible')}
+                key={`disponible-${status}`}
               >
                 Disponible
               </button>

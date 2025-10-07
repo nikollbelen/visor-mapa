@@ -59,6 +59,9 @@ const LotInfoModal = ({
   // Estados para funcionalidades de botones
   const [showContactModal, setShowContactModal] = useState(false);
   const [modalType, setModalType] = useState<"print" | "save" | "email">("print");
+  
+  // Estados para manejar el focus de inputs formateados
+  const [focusedInputs, setFocusedInputs] = useState<{[key: string]: boolean}>({});
   // Datos por defecto si no hay datos del lote
   const defaultLotData = {
     lot: "Lote sin identificar",
@@ -96,6 +99,115 @@ const LotInfoModal = ({
     onClose?.();
   };
 
+  // Funciones para manejar el formato dinámico de inputs
+  const handleInputFocus = (inputId: string) => {
+    setFocusedInputs(prev => ({ ...prev, [inputId]: true }));
+  };
+
+  const handleInputBlur = (inputId: string) => {
+    setFocusedInputs(prev => ({ ...prev, [inputId]: false }));
+  };
+
+  // Función para redondear a 2 decimales solo si tiene más de 2 decimales
+  const roundToTwoDecimals = (value: number): number => {
+    const rounded = Math.round(value * 100) / 100;
+    return rounded;
+  };
+
+  // Función para formatear fechas - acepta múltiples formatos y siempre retorna dd/mm/aaaa
+  const formatDateInput = (input: string): string => {
+    if (!input) return '';
+    
+    // Limpiar el input de caracteres no numéricos excepto /
+    const cleanInput = input.replace(/[^0-9/]/g, '');
+    
+    // Si está vacío, retornar vacío
+    if (!cleanInput) return '';
+    
+    // Detectar el formato y convertir a dd/mm/aaaa
+    let day = '';
+    let month = '';
+    let year = '';
+    
+    // Caso 1: dd/mm/aa o dd/mm/aaaa
+    if (cleanInput.includes('/')) {
+      const parts = cleanInput.split('/');
+      if (parts.length >= 2) {
+        day = parts[0].padStart(2, '0');
+        month = parts[1].padStart(2, '0');
+        if (parts[2]) {
+          year = parts[2];
+          // Si tiene 2 dígitos, asumir 20xx
+          if (year.length === 2) {
+            year = '20' + year;
+          }
+        }
+      }
+    }
+    // Caso 2: ddmmaa o ddmmaaaa (sin separadores)
+    else {
+      const numbers = cleanInput.replace(/\D/g, '');
+      
+      if (numbers.length === 4) {
+        // ddmmaa
+        day = numbers.substring(0, 2);
+        month = numbers.substring(2, 4);
+        year = '2024'; // Año actual por defecto
+      } else if (numbers.length === 5) {
+        // ddmmaa (5 dígitos: dd/mm/aa)
+        day = numbers.substring(0, 2);
+        month = numbers.substring(2, 4);
+        year = '20' + numbers.substring(4, 5);
+      } else if (numbers.length === 6) {
+        // ddmmaa
+        day = numbers.substring(0, 2);
+        month = numbers.substring(2, 4);
+        year = '20' + numbers.substring(4, 6);
+      } else if (numbers.length === 8) {
+        // ddmmaaaa
+        day = numbers.substring(0, 2);
+        month = numbers.substring(2, 4);
+        year = numbers.substring(4, 8);
+      }
+    }
+    
+    // Validar que tengamos los componentes necesarios
+    if (day && month && year) {
+      // Validar rangos básicos
+      const dayNum = parseInt(day);
+      const monthNum = parseInt(month);
+      const yearNum = parseInt(year);
+      
+      if (dayNum >= 1 && dayNum <= 31 && monthNum >= 1 && monthNum <= 12 && yearNum >= 2000) {
+        return `${day}/${month}/${year}`;
+      }
+    }
+    
+    // Si no se puede formatear correctamente, retornar el input limpio
+    return cleanInput;
+  };
+
+  const getFormattedValue = (value: number, type: 'usd' | 'percentage' | 'cuotas', inputId: string) => {
+    const isFocused = focusedInputs[inputId];
+    
+    if (isFocused) {
+      // Cuando está enfocado, mostrar solo el número redondeado a 2 decimales
+      return roundToTwoDecimals(value).toString();
+    } else {
+      // Cuando no está enfocado, mostrar con formato
+      switch (type) {
+        case 'usd':
+          return value > 0 ? `${roundToTwoDecimals(value).toLocaleString()} USD` : '';
+        case 'percentage':
+          return value > 0 ? `${roundToTwoDecimals(value).toFixed(2)} %` : '';
+        case 'cuotas':
+          return value > 0 ? `${value} cuotas` : '';
+        default:
+          return roundToTwoDecimals(value).toString();
+      }
+    }
+  };
+
   const handleDiscountChange = (
     e: React.ChangeEvent<HTMLInputElement>,
     type: "amount" | "percentage"
@@ -104,13 +216,13 @@ const LotInfoModal = ({
     const price = loteData?.precio || 445000;
 
     if (type === "amount") {
-      const amount = parseFloat(value.replace(/[^0-9.-]/g, "")) || 0;
+      const amount = roundToTwoDecimals(parseFloat(value.replace(/[^0-9.-]/g, "")) || 0);
       setDiscountAmount(amount);
-      setDiscountPercentage((amount / price) * 100);
+      setDiscountPercentage(roundToTwoDecimals((amount / price) * 100));
     } else {
-      const percentage = validatePercentage(parseFloat(value.replace(/[^0-9.-]/g, "")) || 0);
+      const percentage = validatePercentage(roundToTwoDecimals(parseFloat(value.replace(/[^0-9.-]/g, "")) || 0));
       setDiscountPercentage(percentage);
-      setDiscountAmount((percentage / 100) * price);
+      setDiscountAmount(roundToTwoDecimals((percentage / 100) * price));
     }
 
     // No recalcular automáticamente para evitar bucles
@@ -154,14 +266,14 @@ const LotInfoModal = ({
     const result = [...items];
     
     for (let i = 0; i < result.length - 1; i++) {
-      result[i].amount = (result[i].percentage / 100) * finalPrice;
+      result[i].amount = roundToTwoDecimals((result[i].percentage / 100) * finalPrice);
       totalCalculatedAmount += result[i].amount;
     }
     
     // Para el último item, calcular el monto restante
     if (result.length > 0) {
       const lastIndex = result.length - 1;
-      result[lastIndex].amount = finalPrice - totalCalculatedAmount;
+      result[lastIndex].amount = roundToTwoDecimals(finalPrice - totalCalculatedAmount);
     }
     
     return result;
@@ -192,9 +304,11 @@ const LotInfoModal = ({
       // Agregar separación si está habilitada
       if (separation.enabled && separation.percentage > 0) {
         console.log("Agregando Separación:", separation);
+        // Buscar si ya existe una separación con fecha en el schedule actual
+        const existingSeparacion = schedule.find(item => item.item === "Separación");
         newSchedule.push({
           item: "Separación",
-          date: firstPaymentDate,
+          date: existingSeparacion?.date || "", // Preservar fecha existente o vacío
           percentage: separation.percentage,
           amount: separation.amount,
           isEdited: false,
@@ -204,9 +318,11 @@ const LotInfoModal = ({
       // Buscar o agregar inicial
       if (initial.percentage > 0) {
         console.log("Agregando Inicial:", initial);
+        // Buscar si ya existe una inicial con fecha en el schedule actual
+        const existingInicial = schedule.find(item => item.item === "Inicial");
         newSchedule.push({
           item: "Inicial",
-          date: firstPaymentDate,
+          date: existingInicial?.date || "", // Preservar fecha existente o vacío
           percentage: initial.percentage,
           amount: initial.amount,
           isEdited: false,
@@ -263,9 +379,11 @@ const LotInfoModal = ({
 
       // Agregar separación si está habilitada
       if (separation.enabled && separation.percentage > 0) {
+        // Buscar si ya existe una separación con fecha en el schedule actual
+        const existingSeparacion = schedule.find(item => item.item === "Separación");
         newSchedule.push({
           item: "Separación",
-          date: firstPaymentDate,
+          date: existingSeparacion?.date || "", // Preservar fecha existente o vacío
           percentage: separation.percentage,
           amount: separation.amount,
           isEdited: false,
@@ -275,9 +393,11 @@ const LotInfoModal = ({
       // Buscar o agregar inicial
       if (initial.percentage > 0) {
         console.log("Agregando Inicial:", initial);
+        // Buscar si ya existe una inicial con fecha en el schedule actual
+        const existingInicial = schedule.find(item => item.item === "Inicial");
         newSchedule.push({
           item: "Inicial",
-          date: firstPaymentDate,
+          date: existingInicial?.date || "", // Preservar fecha existente o vacío
           percentage: initial.percentage,
           amount: initial.amount,
           isEdited: false,
@@ -318,9 +438,11 @@ const LotInfoModal = ({
 
       // Agregar separación si está habilitada
       if (separation.enabled && separation.percentage > 0) {
+        // Buscar si ya existe una separación con fecha en el schedule actual
+        const existingSeparacion = schedule.find(item => item.item === "Separación");
         newSchedule.push({
           item: "Separación",
-          date: firstPaymentDate,
+          date: existingSeparacion?.date || "", // Preservar fecha existente o vacío
           percentage: separation.percentage,
           amount: separation.amount,
           isEdited: false,
@@ -330,9 +452,11 @@ const LotInfoModal = ({
       // Buscar o agregar inicial
       if (initial.percentage > 0) {
         console.log("Agregando Inicial:", initial);
+        // Buscar si ya existe una inicial con fecha en el schedule actual
+        const existingInicial = schedule.find(item => item.item === "Inicial");
         newSchedule.push({
           item: "Inicial",
-          date: firstPaymentDate,
+          date: existingInicial?.date || "", // Preservar fecha existente o vacío
           percentage: initial.percentage,
           amount: initial.amount,
           isEdited: false,
@@ -394,8 +518,8 @@ const LotInfoModal = ({
     if (!startDate) return "";
 
     try {
-      // Parsear fecha de inicio (formato dd/mm/aa)
-      const parsedDate = parse(startDate, "dd/MM/yy", new Date());
+      // Parsear fecha de inicio (formato dd/mm/aaaa)
+      const parsedDate = parse(startDate, "dd/MM/yyyy", new Date());
 
       if (!isValid(parsedDate)) {
         console.error("Invalid start date format");
@@ -403,10 +527,11 @@ const LotInfoModal = ({
       }
 
       // Agregar meses usando date-fns para manejar casos especiales
-      const installmentDate = addMonths(parsedDate, installmentIndex);
+      // La primera cuota (index 1) debe usar la fecha de inicio directamente
+      const installmentDate = addMonths(parsedDate, installmentIndex - 1);
 
-      // Formatear de vuelta a dd/mm/aa
-      return format(installmentDate, "dd/MM/yy");
+      // Formatear de vuelta a dd/mm/aaaa
+      return format(installmentDate, "dd/MM/yyyy");
     } catch (error) {
       console.error("Error calculating installment date:", error);
       return "";
@@ -421,12 +546,13 @@ const LotInfoModal = ({
     }
 
     try {
-      const parsedDate = parse(dateString, "dd/MM/yy", new Date());
+      // Intentar parsear con formato dd/mm/aaaa
+      const parsedDate = parse(dateString, "dd/MM/yyyy", new Date());
 
       if (!isValid(parsedDate)) {
         return {
           isValid: false,
-          error: "Formato de fecha inválido (dd/mm/aa)",
+          error: "Formato de fecha inválido (dd/mm/aaaa)",
         };
       }
 
@@ -463,12 +589,12 @@ const LotInfoModal = ({
     if (!startDate || numberOfInstallments <= 0) return "";
 
     try {
-      const parsedDate = parse(startDate, "dd/MM/yy", new Date());
+      const parsedDate = parse(startDate, "dd/MM/yyyy", new Date());
       if (!isValid(parsedDate)) return "";
 
       // La fecha final es la última cuota (número de cuotas - 1 meses después)
       const finalDate = addMonths(parsedDate, numberOfInstallments - 1);
-      return format(finalDate, "dd/MM/yy");
+      return format(finalDate, "dd/MM/yyyy");
     } catch (error) {
       console.error("Error calculating final payment date:", error);
       return "";
@@ -629,7 +755,7 @@ const LotInfoModal = ({
       for (let i = 0; i < uneditedIndices.length - 1; i++) {
         const index = uneditedIndices[i];
         schedule[index].percentage = roundPercentage(distributionPerInstallment);
-        schedule[index].amount = (distributionPerInstallment / 100) * finalPrice;
+        schedule[index].amount = roundToTwoDecimals((distributionPerInstallment / 100) * finalPrice);
         totalCalculatedAmount += schedule[index].amount;
       }
 
@@ -639,7 +765,7 @@ const LotInfoModal = ({
         schedule[lastIndex].percentage = roundPercentage(distributionPerInstallment);
         
         // Calcular el monto restante para que la suma total sea exacta
-        const remainingAmount = finalPrice - totalCalculatedAmount;
+        const remainingAmount = roundToTwoDecimals(finalPrice - totalCalculatedAmount);
         schedule[lastIndex].amount = remainingAmount;
       }
     }
@@ -648,17 +774,30 @@ const LotInfoModal = ({
   // Función removida - no se necesita recálculo automático para cuotas no equivalentes
 
   const handleDateChange = (value: string) => {
+    // Solo guardar el valor sin formatear mientras se escribe
     setFirstPaymentDate(value);
+    
+    // Limpiar errores mientras se escribe
+    setDateError("");
+    setCalculatedFinalDate("");
+    
+    setNeedsUpdate(true);
+  };
 
-    // Solo validar si la fecha está completa (formato dd/mm/aa)
-    if (value.length === 8 && value.includes("/")) {
-      const validation = validateStartDate(value);
+  const handleDateBlur = (value: string) => {
+    // Formatear la fecha cuando se desenfoca
+    const formattedDate = formatDateInput(value);
+    setFirstPaymentDate(formattedDate);
+    
+    // Solo validar si la fecha está completa y formateada
+    if (formattedDate && formattedDate.length === 10 && formattedDate.includes("/")) {
+      const validation = validateStartDate(formattedDate);
       setDateError(validation.isValid ? "" : validation.error || "");
 
       // Calcular fecha final automáticamente solo si es válida
       if (validation.isValid) {
         const finalDate = calculateFinalPaymentDate(
-          value,
+          formattedDate,
           numberOfInstallments
         );
         setCalculatedFinalDate(finalDate);
@@ -667,7 +806,7 @@ const LotInfoModal = ({
         if (schedule.length > 0) {
           const newSchedule = schedule.map((item, index) => ({
             ...item,
-            date: calculateInstallmentDate(value, index),
+            date: calculateInstallmentDate(formattedDate, index),
           }));
           setSchedule(newSchedule);
         }
@@ -675,12 +814,10 @@ const LotInfoModal = ({
         setCalculatedFinalDate("");
       }
     } else {
-      // Limpiar errores mientras se escribe
+      // Si no está completa, limpiar todo
       setDateError("");
       setCalculatedFinalDate("");
     }
-
-    setNeedsUpdate(true);
   };
 
   const handleQuotationClick = () => {
@@ -1030,9 +1167,8 @@ const LotInfoModal = ({
 
   return (
     <div
-      className="lot-modal background-container border-container"
+      className={`lot-modal background-container border-container ${ isVisible ? 'show' : 'hide' }`}
       id="modalOverlay"
-      style={{ display: isVisible ? "flex" : "none" }}
     >
       {/* Cara frontal - Información del lote */}
       <div
@@ -1069,11 +1205,18 @@ const LotInfoModal = ({
               className="lot-status-badge"
               style={{ 
                 backgroundColor: lotData.status === 'disponible' 
-                  ? '#03b343'  
-                  : lotData.status === 'reservado' 
-                  ? '#f59e0b' 
-                  : '#dc2626' 
-              }} 
+                    ? 'rgba(29, 183, 121, 0.2)' 
+                    : lotData.status === 'reservado' 
+                        ? 'rgba(251, 224, 73, 0.2)' 
+                        : 'rgba(251, 73, 73, 0.2)',
+                borderColor: lotData.status === 'disponible' 
+                    ? '#1DB779' 
+                    : lotData.status === 'reservado' 
+                        ? '#FBE049' 
+                        : '#FB4949', 
+                borderStyle: 'solid', 
+                borderWidth: '1px' 
+            }}
               id="modalStatus"
             >
               {lotData.status}
@@ -1153,9 +1296,12 @@ const LotInfoModal = ({
             </div>
           </div>
 
-          <button className="lot-whatsapp-btn" onClick={handleQuotationClick}>
-            <i className="fa-brands fa-whatsapp"></i>
-            <span>Cotización de lote</span>
+          <button className="lot-whatsapp-btn" style={{ 
+                background: lotData.status === 'disponible' 
+                  ? '#1DB779'  
+                  : 'linear-gradient(135deg, #333 0%, #444 100%)' 
+              }} onClick={lotData.status === 'disponible' ? handleQuotationClick : undefined}>
+            <span>{lotData.status === 'disponible' ? 'Cotizar' : 'Este lote ya no esta disponible'}</span>
           </button>
         </div>
       </div>
@@ -1230,22 +1376,18 @@ const LotInfoModal = ({
                       type="text"
                       className="discount-input"
                       placeholder="$ 0.00"
-                      value={
-                        discountAmount > 0
-                          ? `$ ${discountAmount.toLocaleString()}`
-                          : ""
-                      }
+                      value={getFormattedValue(discountAmount, 'usd', 'discount-amount')}
+                      onFocus={() => handleInputFocus('discount-amount')}
+                      onBlur={() => handleInputBlur('discount-amount')}
                       onChange={(e) => handleDiscountChange(e, "amount")}
                     />
                     <input
                       type="text"
                       className="discount-input"
                       placeholder="0.00%"
-                      value={
-                        discountPercentage > 0
-                          ? `${discountPercentage.toFixed(2)}%`
-                          : ""
-                      }
+                      value={getFormattedValue(discountPercentage, 'percentage', 'discount-percentage')}
+                      onFocus={() => handleInputFocus('discount-percentage')}
+                      onBlur={() => handleInputBlur('discount-percentage')}
                       onChange={(e) => handleDiscountChange(e, "percentage")}
                     />
                   </div>
@@ -1320,11 +1462,9 @@ const LotInfoModal = ({
                           type="text"
                           className="form-input"
                           placeholder="0.00 USD"
-                          value={
-                            separation.amount > 0
-                              ? `${separation.amount.toLocaleString()} USD`
-                              : ""
-                          }
+                          value={getFormattedValue(separation.amount, 'usd', 'separation-amount-hipotecario')}
+                          onFocus={() => handleInputFocus('separation-amount-hipotecario')}
+                          onBlur={() => handleInputBlur('separation-amount-hipotecario')}
                           onChange={(e) => {
                             const amount =
                               parseFloat(
@@ -1347,11 +1487,9 @@ const LotInfoModal = ({
                           type="text"
                           className="form-input"
                           placeholder="0.00 %"
-                          value={
-                            separation.percentage > 0
-                              ? `${separation.percentage.toFixed(2)} %`
-                              : ""
-                          }
+                          value={getFormattedValue(separation.percentage, 'percentage', 'separation-percentage-hipotecario')}
+                          onFocus={() => handleInputFocus('separation-percentage-hipotecario')}
+                          onBlur={() => handleInputBlur('separation-percentage-hipotecario')}
                           onChange={(e) => {
                             const percentage = validatePercentage(
                               parseFloat(
@@ -1380,11 +1518,9 @@ const LotInfoModal = ({
                         type="text"
                         className="form-input"
                         placeholder="0.00 USD"
-                        value={
-                          initial.amount > 0
-                            ? `${initial.amount.toLocaleString()} USD`
-                            : ""
-                        }
+                          value={getFormattedValue(initial.amount, 'usd', 'initial-amount-hipotecario')}
+                          onFocus={() => handleInputFocus('initial-amount-hipotecario')}
+                          onBlur={() => handleInputBlur('initial-amount-hipotecario')}
                         onChange={(e) => {
                           console.log("=== CAMBIANDO INPUT INICIAL ===");
                           console.log(
@@ -1416,16 +1552,15 @@ const LotInfoModal = ({
                         type="text"
                         className="form-input"
                         placeholder="0.00 %"
-                        value={
-                          initial.percentage > 0
-                            ? `${initial.percentage.toFixed(2)} %`
-                            : ""
-                        }
+                          value={getFormattedValue(initial.percentage, 'percentage', 'initial-percentage-hipotecario')}
+                          onFocus={() => handleInputFocus('initial-percentage-hipotecario')}
+                          onBlur={() => handleInputBlur('initial-percentage-hipotecario')}
                         onChange={(e) => {
-                          const percentage =
+                          const percentage = validatePercentage(
                             parseFloat(
                               e.target.value.replace(/[^0-9.-]/g, "")
-                            ) || 0;
+                            ) || 0
+                          );
                           const amount =
                             (percentage / 100) *
                             ((loteData?.precio || 445000) - discountAmount);
@@ -1451,11 +1586,9 @@ const LotInfoModal = ({
                         type="text"
                         className="form-input"
                         placeholder="0.00 USD"
-                        value={
-                          mortgageCredit.amount > 0
-                            ? `${mortgageCredit.amount.toLocaleString()} USD`
-                            : ""
-                        }
+                          value={getFormattedValue(mortgageCredit.amount, 'usd', 'mortgage-credit-amount')}
+                          onFocus={() => handleInputFocus('mortgage-credit-amount')}
+                          onBlur={() => handleInputBlur('mortgage-credit-amount')}
                         onChange={(e) => {
                           const amount =
                             parseFloat(
@@ -1473,11 +1606,9 @@ const LotInfoModal = ({
                         type="text"
                         className="form-input"
                         placeholder="0.00 %"
-                        value={
-                          mortgageCredit.percentage > 0
-                            ? `${mortgageCredit.percentage.toFixed(2)} %`
-                            : ""
-                        }
+                          value={getFormattedValue(mortgageCredit.percentage, 'percentage', 'mortgage-credit-percentage')}
+                          onFocus={() => handleInputFocus('mortgage-credit-percentage')}
+                          onBlur={() => handleInputBlur('mortgage-credit-percentage')}
                         onChange={(e) => {
                           const percentage =
                             parseFloat(
@@ -1505,11 +1636,9 @@ const LotInfoModal = ({
                         type="text"
                         className="form-input"
                         placeholder="2 cuotas"
-                        value={
-                          numberOfInstallments > 0
-                            ? `${numberOfInstallments} cuotas`
-                            : ""
-                        }
+                          value={getFormattedValue(numberOfInstallments, 'cuotas', 'number-of-installments')}
+                          onFocus={() => handleInputFocus('number-of-installments')}
+                          onBlur={() => handleInputBlur('number-of-installments')}
                         onChange={(e) => {
                           const value =
                             parseInt(e.target.value.replace(/[^0-9]/g, "")) ||
@@ -1539,25 +1668,21 @@ const LotInfoModal = ({
                       <input
                         type="text"
                         className={`date-input ${dateError ? "error" : ""}`}
-                        placeholder="dd/mm/aa"
+                        placeholder="dd/mm/aaaa"
                         value={firstPaymentDate}
                         onChange={(e) => handleDateChange(e.target.value)}
+                        onBlur={(e) => handleDateBlur(e.target.value)}
                       />
                       <input
                         type="text"
                         className="date-input readonly"
-                        placeholder="dd/mm/aa"
+                        placeholder="dd/mm/aaaa"
                         value={calculatedFinalDate}
                         readOnly
                       />
                     </div>
                     {dateError && (
                       <div className="date-error-message">{dateError}</div>
-                    )}
-                    {calculatedFinalDate && !dateError && (
-                      <div className="calculated-date-display">
-                        Fecha final calculada: {calculatedFinalDate}
-                      </div>
                     )}
                   </div>
                 </>
@@ -1587,11 +1712,9 @@ const LotInfoModal = ({
                           type="text"
                           className="form-input"
                           placeholder="0.00 USD"
-                          value={
-                            separation.amount > 0
-                              ? `${separation.amount.toLocaleString()} USD`
-                              : ""
-                          }
+                          value={getFormattedValue(separation.amount, 'usd', 'separation-amount-directo')}
+                          onFocus={() => handleInputFocus('separation-amount-directo')}
+                          onBlur={() => handleInputBlur('separation-amount-directo')}
                           onChange={(e) => {
                             const amount =
                               parseFloat(
@@ -1614,11 +1737,9 @@ const LotInfoModal = ({
                           type="text"
                           className="form-input"
                           placeholder="0.00 %"
-                          value={
-                            separation.percentage > 0
-                              ? `${separation.percentage.toFixed(2)} %`
-                              : ""
-                          }
+                          value={getFormattedValue(separation.percentage, 'percentage', 'separation-percentage-directo')}
+                          onFocus={() => handleInputFocus('separation-percentage-directo')}
+                          onBlur={() => handleInputBlur('separation-percentage-directo')}
                           onChange={(e) => {
                             const percentage = validatePercentage(
                               parseFloat(
@@ -1647,11 +1768,9 @@ const LotInfoModal = ({
                         type="text"
                         className="form-input"
                         placeholder="0.00 USD"
-                        value={
-                          initial.amount > 0
-                            ? `${initial.amount.toLocaleString()} USD`
-                            : ""
-                        }
+                          value={getFormattedValue(initial.amount, 'usd', 'initial-amount-directo')}
+                          onFocus={() => handleInputFocus('initial-amount-directo')}
+                          onBlur={() => handleInputBlur('initial-amount-directo')}
                         onChange={(e) => {
                           console.log("=== CAMBIANDO INPUT INICIAL ===");
                           console.log(
@@ -1683,16 +1802,15 @@ const LotInfoModal = ({
                         type="text"
                         className="form-input"
                         placeholder="0.00 %"
-                        value={
-                          initial.percentage > 0
-                            ? `${initial.percentage.toFixed(2)} %`
-                            : ""
-                        }
+                          value={getFormattedValue(initial.percentage, 'percentage', 'initial-percentage-directo')}
+                          onFocus={() => handleInputFocus('initial-percentage-directo')}
+                          onBlur={() => handleInputBlur('initial-percentage-directo')}
                         onChange={(e) => {
-                          const percentage =
+                          const percentage = validatePercentage(
                             parseFloat(
                               e.target.value.replace(/[^0-9.-]/g, "")
-                            ) || 0;
+                            ) || 0
+                          );
                           const amount =
                             (percentage / 100) *
                             ((loteData?.precio || 445000) - discountAmount);
@@ -1718,11 +1836,9 @@ const LotInfoModal = ({
                         type="text"
                         className="form-input"
                         placeholder="2 cuotas"
-                        value={
-                          numberOfInstallments > 0
-                            ? `${numberOfInstallments} cuotas`
-                            : ""
-                        }
+                          value={getFormattedValue(numberOfInstallments, 'cuotas', 'number-of-installments')}
+                          onFocus={() => handleInputFocus('number-of-installments')}
+                          onBlur={() => handleInputBlur('number-of-installments')}
                         onChange={(e) => {
                           const value =
                             parseInt(e.target.value.replace(/[^0-9]/g, "")) ||
@@ -1752,25 +1868,21 @@ const LotInfoModal = ({
                       <input
                         type="text"
                         className={`date-input ${dateError ? "error" : ""}`}
-                        placeholder="dd/mm/aa"
+                        placeholder="dd/mm/aaaa"
                         value={firstPaymentDate}
                         onChange={(e) => handleDateChange(e.target.value)}
+                        onBlur={(e) => handleDateBlur(e.target.value)}
                       />
                       <input
                         type="text"
                         className="date-input readonly"
-                        placeholder="dd/mm/aa"
+                        placeholder="dd/mm/aaaa"
                         value={calculatedFinalDate}
                         readOnly
                       />
                     </div>
                     {dateError && (
                       <div className="date-error-message">{dateError}</div>
-                    )}
-                    {calculatedFinalDate && !dateError && (
-                      <div className="calculated-date-display">
-                        Fecha final calculada: {calculatedFinalDate}
-                      </div>
                     )}
                   </div>
                 </>
@@ -1800,11 +1912,9 @@ const LotInfoModal = ({
                           type="text"
                           className="form-input"
                           placeholder="0.00 USD"
-                          value={
-                            separation.amount > 0
-                              ? `${separation.amount.toLocaleString()} USD`
-                              : ""
-                          }
+                          value={getFormattedValue(separation.amount, 'usd', 'separation-amount-contado')}
+                          onFocus={() => handleInputFocus('separation-amount-contado')}
+                          onBlur={() => handleInputBlur('separation-amount-contado')}
                           onChange={(e) => {
                             const amount =
                               parseFloat(
@@ -1827,11 +1937,9 @@ const LotInfoModal = ({
                           type="text"
                           className="form-input"
                           placeholder="0.00 %"
-                          value={
-                            separation.percentage > 0
-                              ? `${separation.percentage.toFixed(2)} %`
-                              : ""
-                          }
+                          value={getFormattedValue(separation.percentage, 'percentage', 'separation-percentage-contado')}
+                          onFocus={() => handleInputFocus('separation-percentage-contado')}
+                          onBlur={() => handleInputBlur('separation-percentage-contado')}
                           onChange={(e) => {
                             const percentage = validatePercentage(
                               parseFloat(
@@ -1860,11 +1968,9 @@ const LotInfoModal = ({
                         type="text"
                         className="form-input"
                         placeholder="0.00 USD"
-                        value={
-                          initial.amount > 0
-                            ? `${initial.amount.toLocaleString()} USD`
-                            : ""
-                        }
+                          value={getFormattedValue(initial.amount, 'usd', 'initial-amount-contado')}
+                          onFocus={() => handleInputFocus('initial-amount-contado')}
+                          onBlur={() => handleInputBlur('initial-amount-contado')}
                         onChange={(e) => {
                           console.log("=== CAMBIANDO INPUT INICIAL ===");
                           console.log(
@@ -1896,16 +2002,15 @@ const LotInfoModal = ({
                         type="text"
                         className="form-input"
                         placeholder="0.00 %"
-                        value={
-                          initial.percentage > 0
-                            ? `${initial.percentage.toFixed(2)} %`
-                            : ""
-                        }
+                          value={getFormattedValue(initial.percentage, 'percentage', 'initial-percentage-contado')}
+                          onFocus={() => handleInputFocus('initial-percentage-contado')}
+                          onBlur={() => handleInputBlur('initial-percentage-contado')}
                         onChange={(e) => {
-                          const percentage =
+                          const percentage = validatePercentage(
                             parseFloat(
                               e.target.value.replace(/[^0-9.-]/g, "")
-                            ) || 0;
+                            ) || 0
+                          );
                           const amount =
                             (percentage / 100) *
                             ((loteData?.precio || 445000) - discountAmount);
@@ -1930,12 +2035,19 @@ const LotInfoModal = ({
                       <input
                         type="text"
                         className="date-input"
-                        placeholder="dd/mm/aa"
+                        placeholder="dd/mm/aaaa"
                         value={finalBalance.date || ""}
                         onChange={(e) => {
                           setFinalBalance({
                             ...finalBalance,
                             date: e.target.value
+                          });
+                        }}
+                        onBlur={(e) => {
+                          const formattedDate = formatDateInput(e.target.value);
+                          setFinalBalance({
+                            ...finalBalance,
+                            date: formattedDate
                           });
                         }}
                       />
@@ -1993,11 +2105,17 @@ const LotInfoModal = ({
                         <input
                           type="text"
                           className="input-date"
-                          placeholder="dd/mm/aa"
+                          placeholder="dd/mm/aaaa"
                           value={item.date}
                           onChange={(e) => {
                             const newSchedule = [...schedule];
                             newSchedule[index].date = e.target.value;
+                            setSchedule(newSchedule);
+                          }}
+                          onBlur={(e) => {
+                            const formattedDate = formatDateInput(e.target.value);
+                            const newSchedule = [...schedule];
+                            newSchedule[index].date = formattedDate;
                             setSchedule(newSchedule);
                           }}
                         />
@@ -2054,7 +2172,7 @@ const LotInfoModal = ({
                         <input
                           type="text"
                           className="input-date muted"
-                          placeholder="dd/mm/aa"
+                          placeholder="dd/mm/aaaa"
                         />
                       </td>
                       <td style={{ textAlign: "center" }}>

@@ -480,6 +480,21 @@
   margin-right: auto;
 }
 
+.lot-card-status.disponible {
+  background: rgba(29, 183, 121, 0.2);
+  border: 1px solid #1DB779;
+}
+
+.lot-card-status.reservado {
+  background: rgba(251, 224, 73, 0.2);
+  border: 1px solid #FBE049;
+}
+
+.lot-card-status.vendido {
+  background: rgba(251, 73, 73, 0.2);
+  border: 1px solid #FB4949;
+}
+
 .lot-card-details {
   margin: auto;
   width: 80%;
@@ -547,8 +562,9 @@
 }
 
 .lot-card-view-more-btn {
-  width: 100%;
-  background: rgba(255, 255, 255, 0.1);
+  margin: auto;
+  width: fit-content;
+  background: rgba(0, 0, 0, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.2);
   color: white;
   padding: 10px 16px;
@@ -562,6 +578,7 @@
   justify-content: center;
   gap: 8px;
   margin-top: 12px;
+  margin-bottom: 12px;
 }
 
 .lot-card-view-more-btn:hover {

@@ -36,12 +36,14 @@ body {
   --text-color: #ffffff;
   
   /* Colores de fondo */
+  --glass-bg-green: #1DB779;
   --glass-bg: rgba(14, 14, 14, 0.8);
   --glass-bg-solid: #0e0e0e;
   --glass-bg-light: rgb(39 39 39 / 50%);
   
   /* Colores de borde */
-  --glass-border: rgba(255, 255, 255, 0.8);
+  --glass-border-green: #23e094;
+  --glass-border: rgba(255, 255, 255, 0.5);
   --glass-border-light: rgba(255, 255, 255, 0.3);
   
   /* Sombras */
@@ -87,10 +89,10 @@ body {
 }
 
 .background-btn {
-  background-color: var(--glass-bg);
-  border: 0.5px solid var(--glass-border-light);
-  color: var(--text-color);
-  border-radius: 1rem;
+  background-color: var(--glass-bg-green) !important;
+  border: 0.5px solid var(--glass-border-green) !important;
+  color: var(--text-color) !important;
+  border-radius: 1rem ;
 }
 
 .background-btn:hover {
@@ -120,4 +122,55 @@ body {
 
 .close-btn:hover {
   transform: scale(1.1);
+}
+
+.btn {
+  background-color: var(--glass-bg);
+  border: 0.5px solid var(--glass-border-light);
+  color: var(--text-color);
+  border-radius: 1rem;
+}
+
+.btn:hover {
+  background: var(--glass-bg);
+  box-shadow: var(--shadow-light);
+}
+
+/* ===== ANIMACIONES ===== */
+.show {
+  animation: showModal 0.4s ease-in-out forwards;
+}
+
+@keyframes showModal {
+  0% {
+    display: none;
+    opacity: 0;
+  }
+  1% {
+    display: flex;
+    opacity: 0;
+  }
+  100% {
+    display: flex;
+    opacity: 1;
+  }
+}
+
+.hide {
+  animation: hideModal 0.4s ease-in-out forwards;
+}
+
+@keyframes hideModal {
+  0% {
+    display: flex;
+    opacity: 1;
+  }
+  99% {
+    display: flex;
+    opacity: 0;
+  }
+  100% {
+    display: none;
+    opacity: 0;
+  } 
 }

@@ -91,7 +91,7 @@ const AreasModal = ({ isVisible = false, onClose, areasData }: AreasModalProps) 
         </div>
       </div>
       
-      <div className="common-areas-modal-content">
+      <div className={`common-areas-modal-content ${isMobile ? 'mobile-modal-content' : ''}`}>
         <div className="common-areas-section">
           <div className={`common-areas-grid ${isMobile ? 'mobile-grid' : ''}`} id="commonAreasGrid">
             {areasData && areasData.features ? (
@@ -101,7 +101,7 @@ const AreasModal = ({ isVisible = false, onClose, areasData }: AreasModalProps) 
                 const image = feature.properties.image;
 
                 return (
-                  <div key={fid} className={`common-areas-card ${isMobile ? 'mobile-card' : ''}`} data-marker={`area_comun_${fid}`}>
+                  <div key={fid} className={`common-areas-card background-container border-container ${isMobile ? 'mobile-card' : ''}`} data-marker={`area_comun_${fid}`}>
                     <div 
                       className="common-areas-card-image" 
                       style={{ backgroundImage: `url('${image}')` }}
@@ -110,8 +110,7 @@ const AreasModal = ({ isVisible = false, onClose, areasData }: AreasModalProps) 
                       <div className="common-areas-card-title">{name}</div>
                       <div className="common-areas-card-buttons">
                         <button 
-                          className="common-areas-card-button" 
-                          style={{ backgroundColor: '#948f8f80' }}
+                          className="background-btn common-areas-card-button" 
                           onClick={() => handleViewImage(image)}
                         >
                           <span>Ver imágenes</span>

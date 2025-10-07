@@ -36,7 +36,6 @@ export default function App() {
 
       // Forzar re-renderizado cerrando y abriendo el modal
       setShowLotInfoModal(false);
-      setSelectedLote(null);
 
       // Usar setTimeout para asegurar que el estado se actualice
       setTimeout(() => {
@@ -240,7 +239,6 @@ export default function App() {
 
   const handleLotInfoModalClose = () => {
     setShowLotInfoModal(false);
-    setSelectedLote(null);
     // Limpiar estado en Cesium
     if (window.reiniciarMenu) {
       window.reiniciarMenu();

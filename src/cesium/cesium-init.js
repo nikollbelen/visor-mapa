@@ -28,6 +28,57 @@ let highlightedMarcadorOriginalScale = null;
 let selected = null;
 let selectedOriginalMaterial = null;
 
+// Functions to detect device type and adjust label properties
+function getDeviceType() {
+  const width = window.innerWidth;
+  if (width <= 768) {
+    return 'mobile';
+  } else if (width <= 1024) {
+    return 'tablet';
+  } else {
+    return 'desktop';
+  }
+}
+
+function getLabelFont() {
+  const deviceType = getDeviceType();
+  switch (deviceType) {
+    case 'mobile':
+      return "700 6pt Arial, sans-serif";
+    case 'tablet':
+      return "800 7pt Arial, sans-serif";
+    case 'desktop':
+    default:
+      return "900 9pt Arial, sans-serif";
+  }
+}
+
+function getLabelScale() {
+  const deviceType = getDeviceType();
+  switch (deviceType) {
+    case 'mobile':
+      return 0.6;
+    case 'tablet':
+      return 0.8;
+    case 'desktop':
+    default:
+      return 1.0;
+  }
+}
+
+function getLabelOutlineWidth() {
+  const deviceType = getDeviceType();
+  switch (deviceType) {
+    case 'mobile':
+      return 1;
+    case 'tablet':
+      return 1.5;
+    case 'desktop':
+    default:
+      return 2;
+  }
+}
+
 // Lot colors
 const disponible = window.Cesium.Color.fromCssColorString("#00BA13");
 const reservado = window.Cesium.Color.fromCssColorString("#F5E200");
@@ -150,15 +201,15 @@ async function loadLotesData() {
               entity.properties.manzana && entity.properties.lote
                 ? `${entity.properties.manzana}${entity.properties.lote}`
                 : "",
-            font: "900 9pt Arial, sans-serif",
+            font: getLabelFont(),
             fillColor: window.Cesium.Color.WHITE,
             outlineColor: window.Cesium.Color.GRAY,
-            outlineWidth: 2,
+            outlineWidth: getLabelOutlineWidth(),
             style: window.Cesium.LabelStyle.FILL_AND_OUTLINE,
             verticalOrigin: window.Cesium.VerticalOrigin.CENTER,
             pixelOffset: new window.Cesium.Cartesian2(0, 0),
             disableDepthTestDistance: Number.POSITIVE_INFINITY,
-            scale: 1.0,
+            scale: getLabelScale(),
             heightReference: window.Cesium.HeightReference.CLAMP_TO_GROUND,
             show: !!lote,
           },
@@ -595,7 +646,7 @@ function flyToView(positions) {
     offset: new window.Cesium.HeadingPitchRange(
       0.0,
       window.Cesium.Math.toRadians(-90),
-      boundingSphere.radius * 3.7
+      boundingSphere.radius * 3.8
     ),
   });
 }
@@ -670,7 +721,10 @@ function reiniciarMenu() {
   );
   const aroundModalOverlay = document.getElementById("aroundModalOverlay");
 
-  if (modalOverlay) modalOverlay.style.display = "none";
+  if (modalOverlay) if (modalOverlay.classList.contains("show")) {
+    modalOverlay.classList.remove("show");
+    modalOverlay.classList.add("hide");
+  }
   if (overlay360) overlay360.style.display = "none";
   if (commonAreasModalOverlay) commonAreasModalOverlay.style.display = "none";
   if (lotSearchModalOverlay) lotSearchModalOverlay.style.display = "none";
@@ -1064,7 +1118,7 @@ function renderLotCards(lots) {
     card.innerHTML = `
               <div class="lot-card-header">${lot.number}</div>
               <div class="lot-card-separator"></div>
-              <div class="lot-card-status">${
+              <div class="lot-card-status ${lot.status}">${
                 lot.status.charAt(0).toUpperCase() + lot.status.slice(1)
               }</div>
               <div class="lot-card-details">
@@ -1715,6 +1769,22 @@ function view3D() {
     ),
   });
 }
+
+// Update labels when window is resized
+function updateLabelsOnResize() {
+  if (window.polygonLabels && window.polygonLabels.length > 0) {
+    window.polygonLabels.forEach(labelEntity => {
+      if (labelEntity.label) {
+        labelEntity.label.font = getLabelFont();
+        labelEntity.label.scale = getLabelScale();
+        labelEntity.label.outlineWidth = getLabelOutlineWidth();
+      }
+    });
+  }
+}
+
+// Add resize listener
+window.addEventListener('resize', updateLabelsOnResize);
 
 function toggleGrid() {
   const btnGrid = document.getElementById("grid");

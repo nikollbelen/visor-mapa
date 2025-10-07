@@ -146,7 +146,7 @@ const Sidebar = () => {
       {isMobile && (
         <div className="mobile-top-bar">
           <div className="mobile-logo">
-            <img src="/images/logo_mikonos.png" alt="Mykonos Residencial Playa" />
+            <img src="/images/init/init-logo.svg" alt="Mykonos Residencial Playa" />
           </div>
           <button 
             className="hamburger-button"

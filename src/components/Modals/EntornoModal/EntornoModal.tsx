@@ -159,7 +159,7 @@ const EntornoModal = ({ isVisible = false, onClose, entornoData }: EntornoModalP
                 <span id="aroundModalTime">{timeEstimate}</span>
               </div>
               <button 
-                className="around-card-link-button" 
+                className="background-btn around-card-link-button" 
                 id="calculateRouteBtn"
                 onClick={handleCalculateRoute}
               >
