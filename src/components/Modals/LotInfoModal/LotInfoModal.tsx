@@ -59,6 +59,7 @@ const LotInfoModal = ({
   // Estados para funcionalidades de botones
   const [showContactModal, setShowContactModal] = useState(false);
   const [modalType, setModalType] = useState<"print" | "save" | "email">("print");
+  const [functionalitiesEnabled, setFunctionalitiesEnabled] = useState(false);
   
   // Estados para manejar el focus de inputs formateados
   const [focusedInputs, setFocusedInputs] = useState<{[key: string]: boolean}>({});
@@ -179,12 +180,23 @@ const LotInfoModal = ({
       const yearNum = parseInt(year);
       
       if (dayNum >= 1 && dayNum <= 31 && monthNum >= 1 && monthNum <= 12 && yearNum >= 2000) {
+        // Validación adicional: no permitir fechas anteriores a hoy
+        const candidate = new Date(yearNum, monthNum - 1, dayNum);
+        if (isNaN(candidate.getTime())) {
+          return '';
+        }
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        candidate.setHours(0, 0, 0, 0);
+        if (candidate < today) {
+          return '';
+        }
         return `${day}/${month}/${year}`;
       }
     }
     
-    // Si no se puede formatear correctamente, retornar el input limpio
-    return cleanInput;
+    // Si no se puede formatear correctamente, retornar vacío para invalidar la fecha
+    return '';
   };
 
   const getFormattedValue = (value: number, type: 'usd' | 'percentage' | 'cuotas', inputId: string) => {
@@ -308,9 +320,10 @@ const LotInfoModal = ({
         const existingSeparacion = schedule.find(item => item.item === "Separación");
         newSchedule.push({
           item: "Separación",
-          date: existingSeparacion?.date || "", // Preservar fecha existente o vacío
-          percentage: separation.percentage,
-          amount: separation.amount,
+          date: existingSeparacion?.isEditedDate ? existingSeparacion.date : (existingSeparacion?.date || ""), // Preservar fecha editada
+          lastValidDate: existingSeparacion?.lastValidDate,
+          percentage: existingSeparacion ? existingSeparacion.percentage : separation.percentage,
+          amount: existingSeparacion ? existingSeparacion.amount : separation.amount,
           isEdited: false,
         });
       }
@@ -322,9 +335,10 @@ const LotInfoModal = ({
         const existingInicial = schedule.find(item => item.item === "Inicial");
         newSchedule.push({
           item: "Inicial",
-          date: existingInicial?.date || "", // Preservar fecha existente o vacío
-          percentage: initial.percentage,
-          amount: initial.amount,
+          date: existingInicial?.isEditedDate ? existingInicial.date : (existingInicial?.date || ""), // Preservar fecha editada
+          lastValidDate: existingInicial?.lastValidDate,
+          percentage: existingInicial ? existingInicial.percentage : initial.percentage,
+          amount: existingInicial ? existingInicial.amount : initial.amount,
           isEdited: false,
         });
       }
@@ -348,7 +362,8 @@ const LotInfoModal = ({
           : remainingPercentage / numberOfInstallments;
 
         for (let i = 1; i <= numberOfInstallments; i++) {
-          const installmentDate = calculateInstallmentDate(firstPaymentDate, i);
+          const existing = schedule.find(s => s.item === `Cuota ${i}`);
+          const installmentDate = existing?.isEditedDate ? existing.date : calculateInstallmentDate(firstPaymentDate, i);
           newSchedule.push({
             item: `Cuota ${i}`,
             date: installmentDate,
@@ -356,6 +371,7 @@ const LotInfoModal = ({
             amount: (installmentPercentage / 100) * finalPrice,
             isEdited: false,
             isEquivalent: equivalentInstallments,
+            isEditedDate: existing?.isEditedDate || false,
           });
         }
       }
@@ -603,6 +619,8 @@ const LotInfoModal = ({
 
   const generateSchedule = () => {
     console.log("=== EJECUTANDO generateSchedule ===");
+    // Sincronizar estados superiores desde la tabla para Separación e Inicial
+    syncSeparationAndInitialFromSchedule();
     
     // Si ya hay un cronograma y hay cuotas editadas, preservar los datos editados
     if (schedule.length > 0 && !equivalentInstallments) {
@@ -615,7 +633,8 @@ const LotInfoModal = ({
         // Solo recalcular fechas y mantener valores editados
         const newSchedule = schedule.map((item, index) => ({
           ...item,
-          date: calculateInstallmentDate(firstPaymentDate, index),
+          date: item.isEditedDate ? item.date : calculateInstallmentDate(firstPaymentDate, index),
+          lastValidDate: item.lastValidDate,
           isEquivalent: equivalentInstallments,
         }));
         setSchedule(newSchedule);
@@ -627,9 +646,12 @@ const LotInfoModal = ({
     // Si no hay cuotas editadas o son equivalentes, regenerar todo
     calculateSchedule();
     setNeedsUpdate(false);
+    setFunctionalitiesEnabled(true);
   };
 
   const updateSchedule = () => {
+    // Sincronizar estados superiores desde la tabla para Separación e Inicial
+    syncSeparationAndInitialFromSchedule();
     if (equivalentInstallments) {
       // Si son equivalentes, recalcular todo
       calculateSchedule();
@@ -637,13 +659,35 @@ const LotInfoModal = ({
       // Si no son equivalentes, mantener los valores editados y solo recalcular fechas
       const newSchedule = schedule.map((item, index) => ({
         ...item,
-        date: calculateInstallmentDate(firstPaymentDate, index),
+        date: item.isEditedDate ? item.date : calculateInstallmentDate(firstPaymentDate, index),
+        lastValidDate: item.lastValidDate,
         isEquivalent: equivalentInstallments, // Actualizar propiedad isEquivalent
       }));
       setSchedule(newSchedule);
       // Los valores editados se mantienen sin recalcular
     }
     setNeedsUpdate(false);
+    setFunctionalitiesEnabled(true);
+  };
+
+  const syncSeparationAndInitialFromSchedule = () => {
+    try {
+      const sep = schedule.find((s) => s.item === "Separación");
+      if (sep) {
+        const percentage = Math.max(0, Math.min(100, Number(sep.percentage) || 0));
+        const amount = Math.max(0, Number(sep.amount) || 0);
+        setSeparation({ amount, percentage, enabled: percentage > 0 });
+      }
+
+      const ini = schedule.find((s) => s.item === "Inicial");
+      if (ini) {
+        const percentage = Math.max(0, Math.min(100, Number(ini.percentage) || 0));
+        const amount = Math.max(0, Number(ini.amount) || 0);
+        setInitial({ amount, percentage });
+      }
+    } catch {
+      // No-op: sincronización defensiva
+    }
   };
 
   const handleFieldChange = (_field: string) => {
@@ -658,7 +702,8 @@ const LotInfoModal = ({
     field: "percentage" | "amount",
     value: number
   ) => {
-    if (equivalentInstallments) return; // No permitir cambios si son equivalentes
+    // Si son equivalentes, solo bloquear edición en filas de Cuota; permitir Separación/Inicial
+    if (equivalentInstallments && /^Cuota\s/.test(schedule[index]?.item || '')) return;
 
     const newSchedule = [...schedule];
     const finalPrice = (loteData?.precio || 445000) - discountAmount;
@@ -687,6 +732,18 @@ const LotInfoModal = ({
 
     setSchedule(newSchedule);
     setNeedsUpdate(true);
+
+    // Si la fila es Separación o Inicial, sincronizar inputs superiores inmediatamente
+    const editedItem = newSchedule[index];
+    if (editedItem?.item === "Separación") {
+      const syncPercentage = Math.max(0, Math.min(100, Number(editedItem.percentage) || 0));
+      const syncAmount = Math.max(0, Number(editedItem.amount) || 0);
+      setSeparation({ amount: syncAmount, percentage: syncPercentage, enabled: syncPercentage > 0 });
+    } else if (editedItem?.item === "Inicial") {
+      const syncPercentage = Math.max(0, Math.min(100, Number(editedItem.percentage) || 0));
+      const syncAmount = Math.max(0, Number(editedItem.amount) || 0);
+      setInitial({ amount: syncAmount, percentage: syncPercentage });
+    }
   };
 
   const recalculateRemainingInstallments = (
@@ -1006,13 +1063,14 @@ const LotInfoModal = ({
           <div class="info-grid">
             <div class="info-item">
               <div class="info-label">Vendedor:</div>
-              <div>${contactData.vendedor.nombre}</div>
-              <div style="color: #666; font-size: 14px;">${contactData.vendedor.email}</div>
+              <div>${contactData.vendedor?.nombre || ''} ${contactData.vendedorId ? `(${contactData.vendedorId})` : ''}</div>
+              <div style="color: #666; font-size: 14px;">${contactData.vendedor?.email || ''}</div>
             </div>
             <div class="info-item">
               <div class="info-label">Cliente:</div>
-              <div>${contactData.cliente.nombre}</div>
-              <div style="color: #666; font-size: 14px;">${contactData.cliente.email}</div>
+              <div>${contactData.cliente?.nombre || ''}</div>
+              <div style="color: #666; font-size: 14px;">${contactData.cliente?.email || ''}</div>
+              ${contactData.cliente?.telefono ? `<div style="color: #666; font-size: 14px;">${contactData.cliente.telefono}</div>` : ''}
             </div>
           </div>
         </div>
@@ -1069,14 +1127,24 @@ const LotInfoModal = ({
     doc.text(`Lote: ${lotData.lot}`, 20, 40);
     doc.text(`Estado: ${lotData.status}`, 20, 50);
     doc.text(`Precio: ${lotData.price}`, 20, 60);
+    doc.text(`Acción: Guardar PDF`, 20, 70);
     
     // Información de contacto
     doc.text('DATOS DE CONTACTO', 20, 80);
     doc.setFontSize(12);
-    doc.text(`Vendedor: ${contactData.vendedor.nombre}`, 20, 95);
-    doc.text(`Email: ${contactData.vendedor.email}`, 20, 105);
-    doc.text(`Cliente: ${contactData.cliente.nombre}`, 20, 115);
-    doc.text(`Email: ${contactData.cliente.email}`, 20, 125);
+    const vendedorIdText = contactData.vendedorId ? ` (${contactData.vendedorId})` : '';
+    const vendedorNombre = contactData.vendedor?.nombre || '';
+    const vendedorEmail = contactData.vendedor?.email || '';
+    const clienteNombre = contactData.cliente?.nombre || '';
+    const clienteEmail = contactData.cliente?.email || '';
+    const clienteTelefono = contactData.cliente?.telefono || '';
+    doc.text(`Vendedor${vendedorIdText}: ${vendedorNombre}`, 20, 95);
+    doc.text(`Email vendedor: ${vendedorEmail}`, 20, 105);
+    doc.text(`Cliente: ${clienteNombre}`, 20, 115);
+    doc.text(`Email cliente: ${clienteEmail}`, 20, 125);
+    if (clienteTelefono) {
+      doc.text(`Teléfono cliente: ${clienteTelefono}`, 20, 135);
+    }
     
     // Cronograma de pagos
     if (schedule.length > 0) {
@@ -2110,12 +2178,22 @@ const LotInfoModal = ({
                           onChange={(e) => {
                             const newSchedule = [...schedule];
                             newSchedule[index].date = e.target.value;
+                            // No marcar aún, solo actualizar el input y no aceptar inválidos en blur
                             setSchedule(newSchedule);
                           }}
                           onBlur={(e) => {
                             const formattedDate = formatDateInput(e.target.value);
                             const newSchedule = [...schedule];
-                            newSchedule[index].date = formattedDate;
+                            if (formattedDate) {
+                              // Fecha válida
+                              newSchedule[index].date = formattedDate;
+                              newSchedule[index].isEditedDate = true;
+                              newSchedule[index].lastValidDate = formattedDate;
+                            } else {
+                              // Fecha inválida: restaurar último válido (si existe) o vacío
+                              const fallback = newSchedule[index].lastValidDate || '';
+                              newSchedule[index].date = fallback;
+                            }
                             setSchedule(newSchedule);
                           }}
                         />
@@ -2124,10 +2202,14 @@ const LotInfoModal = ({
                         <input
                           type="text"
                           className={`input-percent ${
-                            item.isEquivalent ? "readonly" : ""
+                            item.isEquivalent && /^Cuota\s/.test(item.item) ? "readonly" : ""
                           }`}
-                          value={`${item.percentage.toFixed(2)}%`}
-                          readOnly={item.isEquivalent}
+                          value={getFormattedValue(
+                            item.percentage,
+                            'percentage',
+                            `schedule-percentage-${index}`
+                          )}
+                          readOnly={item.isEquivalent && /^Cuota\s/.test(item.item)}
                           onChange={(e) => {
                             if (!item.isEquivalent) {
                               const percentage =
@@ -2141,16 +2223,32 @@ const LotInfoModal = ({
                               );
                             }
                           }}
+                          onFocus={() => {
+                            setFocusedInputs(prev => ({
+                              ...prev,
+                              [`schedule-percentage-${index}`]: true,
+                            }));
+                          }}
+                          onBlur={() => {
+                            setFocusedInputs(prev => ({
+                              ...prev,
+                              [`schedule-percentage-${index}`]: false,
+                            }));
+                          }}
                         />
                       </td>
                       <td style={{ textAlign: "right" }}>
                         <input
                           type="text"
                           className={`input-amount ${
-                            item.isEquivalent ? "readonly" : ""
+                            item.isEquivalent && /^Cuota\s/.test(item.item) ? "readonly" : ""
                           }`}
-                          value={`${item.amount.toLocaleString()} USD`}
-                          readOnly={item.isEquivalent}
+                          value={getFormattedValue(
+                            item.amount,
+                            'usd',
+                            `schedule-amount-${index}`
+                          )}
+                          readOnly={item.isEquivalent && /^Cuota\s/.test(item.item)}
                           onChange={(e) => {
                             if (!item.isEquivalent) {
                               const amount =
@@ -2159,6 +2257,18 @@ const LotInfoModal = ({
                                 ) || 0;
                               handleInstallmentChange(index, "amount", amount);
                             }
+                          }}
+                          onFocus={() => {
+                            setFocusedInputs(prev => ({
+                              ...prev,
+                              [`schedule-amount-${index}`]: true,
+                            }));
+                          }}
+                          onBlur={() => {
+                            setFocusedInputs(prev => ({
+                              ...prev,
+                              [`schedule-amount-${index}`]: false,
+                            }));
                           }}
                         />
                       </td>
@@ -2219,9 +2329,9 @@ const LotInfoModal = ({
             <div className="functionalities">
               <h3>Funcionalidades</h3>
               <div className="function-buttons">
-                <button className="function-btn" onClick={handlePrint}>Imprimir</button>
-                <button className="function-btn" onClick={handleSave}>Guardar</button>
-                <button className="function-btn" onClick={handleEmail}>Enviar por correo</button>
+                <button className="function-btn" onClick={handlePrint} disabled={!functionalitiesEnabled}>Imprimir</button>
+                <button className="function-btn" onClick={handleSave} disabled={!functionalitiesEnabled}>Guardar</button>
+                <button className="function-btn" onClick={handleEmail} disabled={!functionalitiesEnabled}>Enviar por correo</button>
               </div>
             </div>
           </div>

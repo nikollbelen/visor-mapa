@@ -792,6 +792,22 @@
   box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
 }
 
+/* Estado deshabilitado para botones de funcionalidades */
+.function-btn:disabled {
+  background: #666;
+  color: #bbbbbb;
+  cursor: not-allowed;
+  opacity: 0.8;
+  transform: none;
+  box-shadow: none;
+}
+
+.function-btn:disabled:hover {
+  background: #666;
+  transform: none;
+  box-shadow: none;
+}
+
 /* Tabla de Cronograma Generado */
 .generated-schedule-section {
   margin-bottom: 2rem;

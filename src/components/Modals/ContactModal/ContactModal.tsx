@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./ContactModal.css";
 
 interface ContactModalProps {
@@ -9,21 +9,31 @@ interface ContactModalProps {
 }
 
 interface ContactData {
-  vendedor: { nombre: string; email: string };
-  cliente: { nombre: string; email: string };
+  vendedorId?: string;
+  vendedor?: { id?: string; nombre: string; email: string };
+  cliente: { nombre: string; email: string; telefono?: string };
   fileName?: string; // Para el tipo "save"
+}
+
+interface SellerData {
+  id: string;
+  nombre: string;
+  email: string;
 }
 
 const ContactModal = ({ isVisible, type, onClose, onSubmit }: ContactModalProps) => {
   const [contactData, setContactData] = useState<ContactData>({
-    vendedor: { nombre: '', email: '' },
-    cliente: { nombre: '', email: '' },
+    vendedorId: '',
+    vendedor: { id: '', nombre: '', email: '' },
+    cliente: { nombre: '', email: '', telefono: '' },
     fileName: ''
   });
 
+  const [sellers, setSellers] = useState<SellerData[]>([]);
+
   const [errors, setErrors] = useState({
-    vendedor: { nombre: '', email: '' },
-    cliente: { nombre: '', email: '' }
+    vendedorId: '',
+    cliente: { nombre: '', email: '', telefono: '' }
   });
 
   // Validar email
@@ -38,31 +48,58 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit }: ContactModalProps)
     return nameRegex.test(name);
   };
 
+  // Validar teléfono
+  const validatePhone = (phone: string) => {
+    const phoneRegex = /^[0-9+\-()\s]{6,20}$/;
+    return phoneRegex.test(phone);
+  };
+
   // Validar campo específico
-  const validateField = (field: string, value: string, type: 'vendedor' | 'cliente') => {
-    const newErrors = { ...errors };
-    
-    if (field === 'nombre') {
-      if (value && !validateName(value)) {
-        newErrors[type].nombre = 'El nombre solo puede contener letras y espacios';
-      } else {
-        newErrors[type].nombre = '';
-      }
-    } else if (field === 'email') {
-      if (value && !validateEmail(value)) {
-        newErrors[type].email = 'Ingrese un correo electrónico válido';
-      } else {
-        newErrors[type].email = '';
+  const validateField = (field: string, value: string, type: 'vendedorId' | 'cliente') => {
+    const newErrors: typeof errors = JSON.parse(JSON.stringify(errors));
+    if (type === 'vendedorId') {
+      newErrors.vendedorId = value ? '' : 'Ingrese el ID del vendedor';
+    } else {
+      if (field === 'nombre') {
+        newErrors.cliente.nombre = value && !validateName(value)
+          ? 'El nombre solo puede contener letras y espacios'
+          : '';
+      } else if (field === 'email') {
+        newErrors.cliente.email = value && !validateEmail(value)
+          ? 'Ingrese un correo electrónico válido'
+          : '';
+      } else if (field === 'telefono') {
+        newErrors.cliente.telefono = value && !validatePhone(value)
+          ? 'Ingrese un teléfono válido'
+          : '';
       }
     }
-    
     setErrors(newErrors);
   };
 
+  // Cargar vendedores de public/data/sellers.json
+  useEffect(() => {
+    fetch('/data/sellers.json')
+      .then(res => res.json())
+      .then((data: SellerData[]) => setSellers(data))
+      .catch(() => setSellers([]));
+  }, []);
+
+  // Actualizar datos de vendedor al cambiar el ID
+  useEffect(() => {
+    if (!contactData.vendedorId) return;
+    const found = sellers.find(s => s.id === contactData.vendedorId);
+    if (found) {
+      setContactData(prev => ({
+        ...prev,
+        vendedor: { id: found.id, nombre: found.nombre, email: found.email }
+      }));
+    }
+  }, [contactData.vendedorId, sellers]);
+
   const handleSubmit = () => {
     // Validar todos los campos
-    const hasErrors = errors.vendedor.nombre || errors.vendedor.email || 
-                      errors.cliente.nombre || errors.cliente.email;
+    const hasErrors = !!(errors.vendedorId || errors.cliente.nombre || errors.cliente.email || errors.cliente.telefono);
     
     if (hasErrors) {
       alert('Por favor corrija los errores antes de continuar');
@@ -70,8 +107,7 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit }: ContactModalProps)
     }
 
     // Validar que los campos requeridos no estén vacíos
-    if (!contactData.vendedor.nombre || !contactData.vendedor.email || 
-        !contactData.cliente.nombre || !contactData.cliente.email) {
+    if (!contactData.vendedorId || !contactData.cliente.nombre || !contactData.cliente.email) {
       alert('Por favor complete todos los campos requeridos');
       return;
     }
@@ -82,8 +118,8 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit }: ContactModalProps)
 
   const getTitle = () => {
     switch (type) {
-      case "print": return "Datos para la impresión";
-      case "save": return "Guardar Cronograma";
+      case "print": return "Datos para imprimir";
+      case "save": return "Guardar Cronograma (PDF)";
       case "email": return "Datos para envío por correo";
       default: return "Datos de contacto";
     }
@@ -111,41 +147,28 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit }: ContactModalProps)
         </div>
 
         <div className="contact-modal-content">
-          {type === "save" ? (
+          {(type === "print" || type === "save") ? (
             <div className="contact-form">
-              <p style={{textAlign: 'center', marginBottom: '20px', color: '#ccc'}}>¿Deseas guardar este cronograma como PDF?</p>
               <div className="form-section">
                 <h4>Vendedor</h4>
                 <div className="input-group">
                   <input
                     type="text"
-                    className={`form-input ${errors.vendedor.nombre ? 'error' : ''}`}
-                    placeholder="Nombre del vendedor"
-                    value={contactData.vendedor.nombre}
+                    className={`form-input ${errors.vendedorId ? 'error' : ''}`}
+                    placeholder="ID del vendedor"
+                    value={contactData.vendedorId}
                     onChange={(e) => {
-                      setContactData({
-                        ...contactData,
-                        vendedor: { ...contactData.vendedor, nombre: e.target.value }
-                      });
-                      validateField('nombre', e.target.value, 'vendedor');
+                      setContactData({ ...contactData, vendedorId: e.target.value.trim() });
+                      validateField('id', e.target.value.trim(), 'vendedorId');
                     }}
                   />
-                  {errors.vendedor.nombre && <div className="error-message">{errors.vendedor.nombre}</div>}
-                  <input
-                    type="email"
-                    className={`form-input ${errors.vendedor.email ? 'error' : ''}`}
-                    placeholder="Email del vendedor"
-                    value={contactData.vendedor.email}
-                    onChange={(e) => {
-                      setContactData({
-                        ...contactData,
-                        vendedor: { ...contactData.vendedor, email: e.target.value }
-                      });
-                      validateField('email', e.target.value, 'vendedor');
-                    }}
-                  />
-                  {errors.vendedor.email && <div className="error-message">{errors.vendedor.email}</div>}
+                  {errors.vendedorId && <div className="error-message">{errors.vendedorId}</div>}
                 </div>
+                {contactData.vendedor?.id && (
+                  <div style={{ color: '#9ca3af', fontSize: 12, marginTop: 6 }}>
+                    {contactData.vendedor.nombre} · {contactData.vendedor.email}
+                  </div>
+                )}
               </div>
 
               <div className="form-section">
@@ -179,22 +202,38 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit }: ContactModalProps)
                     }}
                   />
                   {errors.cliente.email && <div className="error-message">{errors.cliente.email}</div>}
+                  <input
+                    type="tel"
+                    className={`form-input ${errors.cliente.telefono ? 'error' : ''}`}
+                    placeholder="Teléfono del cliente"
+                    value={contactData.cliente.telefono}
+                    onChange={(e) => {
+                      setContactData({
+                        ...contactData,
+                        cliente: { ...contactData.cliente, telefono: e.target.value }
+                      });
+                      validateField('telefono', e.target.value, 'cliente');
+                    }}
+                  />
+                  {errors.cliente.telefono && <div className="error-message">{errors.cliente.telefono}</div>}
                 </div>
               </div>
 
-              <div className="form-section">
-                <h4>Nombre del archivo</h4>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Ej: Cronograma_Lote_123"
-                  value={contactData.fileName || ''}
-                  onChange={(e) => setContactData({
-                    ...contactData,
-                    fileName: e.target.value
-                  })}
-                />
-              </div>
+              {type === 'save' && (
+                <div className="form-section">
+                  <h4>Nombre del archivo</h4>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Ej: Cronograma_Lote_123"
+                    value={contactData.fileName || ''}
+                    onChange={(e) => setContactData({
+                      ...contactData,
+                      fileName: e.target.value
+                    })}
+                  />
+                </div>
+              )}
             </div>
           ) : (
             <div className="contact-form">
@@ -203,32 +242,11 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit }: ContactModalProps)
                 <div className="input-group">
                   <input
                     type="text"
-                    className={`form-input ${errors.vendedor.nombre ? 'error' : ''}`}
-                    placeholder="Nombre del vendedor"
-                    value={contactData.vendedor.nombre}
-                    onChange={(e) => {
-                      setContactData({
-                        ...contactData,
-                        vendedor: { ...contactData.vendedor, nombre: e.target.value }
-                      });
-                      validateField('nombre', e.target.value, 'vendedor');
-                    }}
+                    className={`form-input`}
+                    placeholder="ID del vendedor (opcional)"
+                    value={contactData.vendedorId}
+                    onChange={(e) => setContactData({ ...contactData, vendedorId: e.target.value.trim() })}
                   />
-                  {errors.vendedor.nombre && <div className="error-message">{errors.vendedor.nombre}</div>}
-                  <input
-                    type="email"
-                    className={`form-input ${errors.vendedor.email ? 'error' : ''}`}
-                    placeholder="Email del vendedor"
-                    value={contactData.vendedor.email}
-                    onChange={(e) => {
-                      setContactData({
-                        ...contactData,
-                        vendedor: { ...contactData.vendedor, email: e.target.value }
-                      });
-                      validateField('email', e.target.value, 'vendedor');
-                    }}
-                  />
-                  {errors.vendedor.email && <div className="error-message">{errors.vendedor.email}</div>}
                 </div>
               </div>
 
