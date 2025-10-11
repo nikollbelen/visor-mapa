@@ -77,11 +77,19 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit }: ContactModalProps)
     setErrors(newErrors);
   };
 
-  // Cargar vendedores de public/data/sellers.json
+  // Cargar vendedores desde la API de Apico
   useEffect(() => {
-    fetch('/data/sellers.json')
+    fetch('https://api.apico.dev/v1/gE2H1N/1vL47XFQKS6ajoKccemle7MYYDStFVawgnopVpfzz-UA/values/sellers')
       .then(res => res.json())
-      .then((data: SellerData[]) => setSellers(data))
+      .then((apiData) => {
+        // Transformar los datos de la API al formato esperado
+        const sellersData: SellerData[] = apiData.values.map((row: any) => ({
+          id: row[0],
+          nombre: row[1],
+          email: row[2]
+        }));
+        setSellers(sellersData);
+      })
       .catch(() => setSellers([]));
   }, []);
 

@@ -105,6 +105,34 @@ const LotInfoModal = ({
     setFocusedInputs(prev => ({ ...prev, [inputId]: true }));
   };
 
+  // Función para manejar el blur específico de cada input
+  const handleDecimalBlur = (inputId: string, setter: (value: number) => void) => {
+    const rawValue = rawInputValues[inputId];
+    if (rawValue !== undefined) {
+      const cleanValue = rawValue.replace(/[^0-9.]/g, '');
+      
+      // Si hay un valor válido, redondearlo a 2 decimales
+      if (cleanValue !== '' && cleanValue !== '.') {
+        const numValue = parseFloat(cleanValue);
+        if (!isNaN(numValue)) {
+          const roundedValue = Math.round(numValue * 100) / 100;
+          setter(roundedValue);
+        }
+      }
+    }
+    
+    // Limpiar el valor raw
+    setRawInputValues(prev => {
+      const newValues = { ...prev };
+      delete newValues[inputId];
+      return newValues;
+    });
+    
+    // Quitar el foco
+    setFocusedInputs(prev => ({ ...prev, [inputId]: false }));
+  };
+
+  // Función simple para inputs que no necesitan procesamiento especial
   const handleInputBlur = (inputId: string) => {
     setFocusedInputs(prev => ({ ...prev, [inputId]: false }));
   };
@@ -201,21 +229,43 @@ const LotInfoModal = ({
 
   const getFormattedValue = (value: number, type: 'usd' | 'percentage' | 'cuotas', inputId: string) => {
     const isFocused = focusedInputs[inputId];
+    const rawValue = rawInputValues[inputId];
     
-    if (isFocused) {
-      // Cuando está enfocado, mostrar solo el número redondeado a 2 decimales
-      return roundToTwoDecimals(value).toString();
-    } else {
-      // Cuando no está enfocado, mostrar con formato
+    if (isFocused && rawValue !== undefined) {
+      // Cuando está enfocado y hay un valor raw, mostrar exactamente lo que escribió el usuario
+      return rawValue;
+    } else if (isFocused) {
+      // Cuando está enfocado pero no hay valor raw, mostrar solo el número sin formato
       switch (type) {
         case 'usd':
-          return value > 0 ? `${roundToTwoDecimals(value).toLocaleString()} USD` : '';
         case 'percentage':
-          return value > 0 ? `${roundToTwoDecimals(value).toFixed(2)} %` : '';
+          return value > 0 ? value.toFixed(2) : '';
+        case 'cuotas':
+          return value > 0 ? value.toString() : '';
+        default:
+          return value > 0 ? value.toString() : '';
+      }
+    } else {
+      // Cuando no está enfocado, mostrar con formato según las reglas
+      switch (type) {
+        case 'usd':
+          if (value > 0) {
+            // Redondear a 2 decimales y formatear
+            const rounded = Math.round(value * 100) / 100;
+            return `${rounded.toFixed(2)} USD`;
+          }
+          return '';
+        case 'percentage':
+          if (value > 0) {
+            // Redondear a 2 decimales y formatear
+            const rounded = Math.round(value * 100) / 100;
+            return `${rounded.toFixed(2)} %`;
+          }
+          return '';
         case 'cuotas':
           return value > 0 ? `${value} cuotas` : '';
         default:
-          return roundToTwoDecimals(value).toString();
+          return value > 0 ? Math.round(value * 100) / 100 : '';
       }
     }
   };
@@ -224,21 +274,21 @@ const LotInfoModal = ({
     e: React.ChangeEvent<HTMLInputElement>,
     type: "amount" | "percentage"
   ) => {
-    const value = e.target.value;
-    const price = loteData?.precio || 445000;
-
     if (type === "amount") {
-      const amount = roundToTwoDecimals(parseFloat(value.replace(/[^0-9.-]/g, "")) || 0);
-      setDiscountAmount(amount);
-      setDiscountPercentage(roundToTwoDecimals((amount / price) * 100));
+      handleDecimalInput(e.target.value, 'discount-amount', (amount) => {
+        const percentage = (amount / (loteData?.precio || 445000)) * 100;
+        setDiscountAmount(amount);
+        setDiscountPercentage(percentage);
+        handleFieldChange("discount");
+      });
     } else {
-      const percentage = validatePercentage(roundToTwoDecimals(parseFloat(value.replace(/[^0-9.-]/g, "")) || 0));
-      setDiscountPercentage(percentage);
-      setDiscountAmount(roundToTwoDecimals((percentage / 100) * price));
+      handleDecimalInput(e.target.value, 'discount-percentage', (percentage) => {
+        const amount = (percentage / 100) * (loteData?.precio || 445000);
+        setDiscountAmount(amount);
+        setDiscountPercentage(percentage);
+        handleFieldChange("discount");
+      });
     }
-
-    // No recalcular automáticamente para evitar bucles
-    // El usuario debe presionar "Generar Cronograma" manualmente
   };
 
   const handlePaymentMethodChange = (method: string) => {
@@ -268,6 +318,81 @@ const LotInfoModal = ({
   // Función para redondear porcentajes a máximo 3 decimales
   const roundPercentage = (percentage: number) => {
     return Math.round(percentage * 1000) / 1000;
+  };
+
+
+  // Función para validar entrada de decimales mientras se escribe
+  const validateDecimalInput = (value: string): boolean => {
+    // Solo permitir números y punto decimal
+    const cleanValue = value.replace(/[^0-9.]/g, '');
+    
+    // Si el valor original contiene caracteres no permitidos, bloquear
+    if (value !== cleanValue) {
+      return false;
+    }
+    
+    // Permitir valores vacíos o que empiecen con punto
+    if (cleanValue === '' || cleanValue === '.') {
+      return true;
+    }
+    
+    // Verificar que no haya múltiples puntos decimales
+    const dotCount = (cleanValue.match(/\./g) || []).length;
+    if (dotCount > 1) {
+      return false;
+    }
+    
+    // Si hay punto decimal, verificar que no tenga más de 2 decimales
+    if (cleanValue.includes('.')) {
+      const parts = cleanValue.split('.');
+      if (parts[1] && parts[1].length > 2) {
+        return false;
+      }
+    }
+    
+    return true;
+  };
+
+  // Función para extraer número de la entrada
+  const extractNumber = (value: string): number => {
+    const cleanValue = value.replace(/[^0-9.]/g, '');
+    
+    // Si está vacío, devolver 0
+    if (cleanValue === '') {
+      return 0;
+    }
+    
+    // Si solo tiene un punto, devolver 0 pero permitir que se mantenga
+    if (cleanValue === '.') {
+      return 0;
+    }
+    
+    const numValue = parseFloat(cleanValue);
+    return isNaN(numValue) ? 0 : numValue;
+  };
+
+  // Estados para manejar valores raw de los inputs
+  const [rawInputValues, setRawInputValues] = useState<{[key: string]: string}>({});
+
+  // Función para manejar el valor del input mientras se escribe
+  const handleDecimalInput = (value: string, inputId: string, setter: (value: number) => void) => {
+    if (validateDecimalInput(value)) {
+      // Guardar el valor raw para mostrar mientras se escribe
+      setRawInputValues(prev => ({
+        ...prev,
+        [inputId]: value
+      }));
+      
+      const cleanValue = value.replace(/[^0-9.]/g, '');
+      
+      // Si está vacío o solo tiene un punto, no actualizar el estado numérico
+      if (cleanValue === '' || cleanValue === '.') {
+        return;
+      }
+      
+      const numValue = extractNumber(value);
+      setter(numValue);
+    }
   };
 
   const calculatePreciseAmounts = (items: any[], finalPrice: number) => {
@@ -584,12 +709,9 @@ const LotInfoModal = ({
         };
       }
 
-      // No puede ser hoy o en el pasado
-      if (
-        isBefore(parsedDate, today) ||
-        parsedDate.getTime() === today.getTime()
-      ) {
-        return { isValid: false, error: "La fecha debe ser en el futuro" };
+      // No puede ser en el pasado (pero sí puede ser hoy)
+      if (isBefore(parsedDate, today)) {
+        return { isValid: false, error: "La fecha debe ser hoy o en el futuro" };
       }
 
       return { isValid: true };
@@ -1446,7 +1568,12 @@ const LotInfoModal = ({
                       placeholder="$ 0.00"
                       value={getFormattedValue(discountAmount, 'usd', 'discount-amount')}
                       onFocus={() => handleInputFocus('discount-amount')}
-                      onBlur={() => handleInputBlur('discount-amount')}
+                      onBlur={() => handleDecimalBlur('discount-amount', (amount) => {
+                        const percentage = (amount / (loteData?.precio || 445000)) * 100;
+                        setDiscountAmount(amount);
+                        setDiscountPercentage(percentage);
+                        handleFieldChange("discount");
+                      })}
                       onChange={(e) => handleDiscountChange(e, "amount")}
                     />
                     <input
@@ -1455,7 +1582,12 @@ const LotInfoModal = ({
                       placeholder="0.00%"
                       value={getFormattedValue(discountPercentage, 'percentage', 'discount-percentage')}
                       onFocus={() => handleInputFocus('discount-percentage')}
-                      onBlur={() => handleInputBlur('discount-percentage')}
+                      onBlur={() => handleDecimalBlur('discount-percentage', (percentage) => {
+                        const amount = (percentage / 100) * (loteData?.precio || 445000);
+                        setDiscountAmount(amount);
+                        setDiscountPercentage(percentage);
+                        handleFieldChange("discount");
+                      })}
                       onChange={(e) => handleDiscountChange(e, "percentage")}
                     />
                   </div>
@@ -1532,12 +1664,7 @@ const LotInfoModal = ({
                           placeholder="0.00 USD"
                           value={getFormattedValue(separation.amount, 'usd', 'separation-amount-hipotecario')}
                           onFocus={() => handleInputFocus('separation-amount-hipotecario')}
-                          onBlur={() => handleInputBlur('separation-amount-hipotecario')}
-                          onChange={(e) => {
-                            const amount =
-                              parseFloat(
-                                e.target.value.replace(/[^0-9.-]/g, "")
-                              ) || 0;
+                          onBlur={() => handleDecimalBlur('separation-amount-hipotecario', (amount) => {
                             const percentage =
                               (amount /
                                 ((loteData?.precio || 445000) -
@@ -1549,6 +1676,21 @@ const LotInfoModal = ({
                               enabled: true,
                             });
                             handleFieldChange("separation");
+                          })}
+                          onChange={(e) => {
+                            handleDecimalInput(e.target.value, 'separation-amount-hipotecario', (amount) => {
+                              const percentage =
+                                (amount /
+                                  ((loteData?.precio || 445000) -
+                                    discountAmount)) *
+                                100;
+                              setSeparation({
+                                amount,
+                                percentage,
+                                enabled: true,
+                              });
+                              handleFieldChange("separation");
+                            });
                           }}
                         />
                         <input
@@ -1557,22 +1699,31 @@ const LotInfoModal = ({
                           placeholder="0.00 %"
                           value={getFormattedValue(separation.percentage, 'percentage', 'separation-percentage-hipotecario')}
                           onFocus={() => handleInputFocus('separation-percentage-hipotecario')}
-                          onBlur={() => handleInputBlur('separation-percentage-hipotecario')}
-                          onChange={(e) => {
-                            const percentage = validatePercentage(
-                              parseFloat(
-                                e.target.value.replace(/[^0-9.-]/g, "")
-                              ) || 0
-                            );
+                          onBlur={() => handleDecimalBlur('separation-percentage-hipotecario', (percentage) => {
+                            const validatedPercentage = validatePercentage(percentage);
                             const amount =
-                              (percentage / 100) *
+                              (validatedPercentage / 100) *
                               ((loteData?.precio || 445000) - discountAmount);
                             setSeparation({
                               amount,
-                              percentage,
+                              percentage: validatedPercentage,
                               enabled: true,
                             });
                             handleFieldChange("separation");
+                          })}
+                          onChange={(e) => {
+                            handleDecimalInput(e.target.value, 'separation-percentage-hipotecario', (percentage) => {
+                              const validatedPercentage = validatePercentage(percentage);
+                              const amount =
+                                (validatedPercentage / 100) *
+                                ((loteData?.precio || 445000) - discountAmount);
+                              setSeparation({
+                                amount,
+                                percentage: validatedPercentage,
+                                enabled: true,
+                              });
+                              handleFieldChange("separation");
+                            });
                           }}
                         />
                       </div>
@@ -1588,32 +1739,51 @@ const LotInfoModal = ({
                         placeholder="0.00 USD"
                           value={getFormattedValue(initial.amount, 'usd', 'initial-amount-hipotecario')}
                           onFocus={() => handleInputFocus('initial-amount-hipotecario')}
-                          onBlur={() => handleInputBlur('initial-amount-hipotecario')}
-                        onChange={(e) => {
-                          console.log("=== CAMBIANDO INPUT INICIAL ===");
-                          console.log(
-                            "Schedule ANTES de setInitial:",
-                            schedule
-                          );
-                          const amount =
-                            parseFloat(
-                              e.target.value.replace(/[^0-9.-]/g, "")
-                            ) || 0;
-                          const percentage =
-                            (amount /
-                              ((loteData?.precio || 445000) - discountAmount)) *
-                            100;
-                          console.log("Nuevo initial:", { amount, percentage });
-                          setInitial({ amount, percentage });
-                          handleFieldChange("initial");
-
-                          // Log después de setInitial para ver si se modifica el schedule
-                          setTimeout(() => {
+                          onBlur={() => handleDecimalBlur('initial-amount-hipotecario', (amount) => {
+                            console.log("=== CAMBIANDO INPUT INICIAL ===");
                             console.log(
-                              "Schedule DESPUÉS de setInitial:",
+                              "Schedule ANTES de setInitial:",
                               schedule
                             );
-                          }, 100);
+                            const percentage =
+                              (amount /
+                                ((loteData?.precio || 445000) - discountAmount)) *
+                              100;
+                            console.log("Nuevo initial:", { amount, percentage });
+                            setInitial({ amount, percentage });
+                            handleFieldChange("initial");
+
+                            // Log después de setInitial para ver si se modifica el schedule
+                            setTimeout(() => {
+                              console.log(
+                                "Schedule DESPUÉS de setInitial:",
+                                schedule
+                              );
+                            }, 100);
+                          })}
+                        onChange={(e) => {
+                          handleDecimalInput(e.target.value, 'initial-amount-hipotecario', (amount) => {
+                            console.log("=== CAMBIANDO INPUT INICIAL ===");
+                            console.log(
+                              "Schedule ANTES de setInitial:",
+                              schedule
+                            );
+                            const percentage =
+                              (amount /
+                                ((loteData?.precio || 445000) - discountAmount)) *
+                              100;
+                            console.log("Nuevo initial:", { amount, percentage });
+                            setInitial({ amount, percentage });
+                            handleFieldChange("initial");
+
+                            // Log después de setInitial para ver si se modifica el schedule
+                            setTimeout(() => {
+                              console.log(
+                                "Schedule DESPUÉS de setInitial:",
+                                schedule
+                              );
+                            }, 100);
+                          });
                         }}
                       />
                       <input
@@ -1622,26 +1792,39 @@ const LotInfoModal = ({
                         placeholder="0.00 %"
                           value={getFormattedValue(initial.percentage, 'percentage', 'initial-percentage-hipotecario')}
                           onFocus={() => handleInputFocus('initial-percentage-hipotecario')}
-                          onBlur={() => handleInputBlur('initial-percentage-hipotecario')}
-                        onChange={(e) => {
-                          const percentage = validatePercentage(
-                            parseFloat(
-                              e.target.value.replace(/[^0-9.-]/g, "")
-                            ) || 0
-                          );
-                          const amount =
-                            (percentage / 100) *
-                            ((loteData?.precio || 445000) - discountAmount);
-                          setInitial({ amount, percentage });
-                          handleFieldChange("initial");
+                          onBlur={() => handleDecimalBlur('initial-percentage-hipotecario', (percentage) => {
+                            const validatedPercentage = validatePercentage(percentage);
+                            const amount =
+                              (validatedPercentage / 100) *
+                              ((loteData?.precio || 445000) - discountAmount);
+                            setInitial({ amount, percentage: validatedPercentage });
+                            handleFieldChange("initial");
 
-                          // Log después de setInitial para ver si se modifica el schedule
-                          setTimeout(() => {
-                            console.log(
-                              "Schedule DESPUÉS de setInitial:",
-                              schedule
-                            );
-                          }, 100);
+                            // Log después de setInitial para ver si se modifica el schedule
+                            setTimeout(() => {
+                              console.log(
+                                "Schedule DESPUÉS de setInitial:",
+                                schedule
+                              );
+                            }, 100);
+                          })}
+                        onChange={(e) => {
+                          handleDecimalInput(e.target.value, 'initial-percentage-hipotecario', (percentage) => {
+                            const validatedPercentage = validatePercentage(percentage);
+                            const amount =
+                              (validatedPercentage / 100) *
+                              ((loteData?.precio || 445000) - discountAmount);
+                            setInitial({ amount, percentage: validatedPercentage });
+                            handleFieldChange("initial");
+
+                            // Log después de setInitial para ver si se modifica el schedule
+                            setTimeout(() => {
+                              console.log(
+                                "Schedule DESPUÉS de setInitial:",
+                                schedule
+                              );
+                            }, 100);
+                          });
                         }}
                       />
                     </div>
@@ -1656,18 +1839,23 @@ const LotInfoModal = ({
                         placeholder="0.00 USD"
                           value={getFormattedValue(mortgageCredit.amount, 'usd', 'mortgage-credit-amount')}
                           onFocus={() => handleInputFocus('mortgage-credit-amount')}
-                          onBlur={() => handleInputBlur('mortgage-credit-amount')}
+                          onBlur={() => handleDecimalBlur('mortgage-credit-amount', (amount) => {
+                            const percentage =
+                              (amount /
+                                ((loteData?.precio || 445000) - discountAmount)) *
+                              100;
+                            setMortgageCredit({ amount, percentage });
+                            handleFieldChange("mortgageCredit");
+                          })}
                         onChange={(e) => {
-                          const amount =
-                            parseFloat(
-                              e.target.value.replace(/[^0-9.-]/g, "")
-                            ) || 0;
-                          const percentage =
-                            (amount /
-                              ((loteData?.precio || 445000) - discountAmount)) *
-                            100;
-                          setMortgageCredit({ amount, percentage });
-                          handleFieldChange("mortgageCredit");
+                          handleDecimalInput(e.target.value, 'mortgage-credit-amount', (amount) => {
+                            const percentage =
+                              (amount /
+                                ((loteData?.precio || 445000) - discountAmount)) *
+                              100;
+                            setMortgageCredit({ amount, percentage });
+                            handleFieldChange("mortgageCredit");
+                          });
                         }}
                       />
                       <input
@@ -1676,17 +1864,23 @@ const LotInfoModal = ({
                         placeholder="0.00 %"
                           value={getFormattedValue(mortgageCredit.percentage, 'percentage', 'mortgage-credit-percentage')}
                           onFocus={() => handleInputFocus('mortgage-credit-percentage')}
-                          onBlur={() => handleInputBlur('mortgage-credit-percentage')}
+                          onBlur={() => handleDecimalBlur('mortgage-credit-percentage', (percentage) => {
+                            const validatedPercentage = validatePercentage(percentage);
+                            const amount =
+                              (validatedPercentage / 100) *
+                              ((loteData?.precio || 445000) - discountAmount);
+                            setMortgageCredit({ amount, percentage: validatedPercentage });
+                            handleFieldChange("mortgageCredit");
+                          })}
                         onChange={(e) => {
-                          const percentage =
-                            parseFloat(
-                              e.target.value.replace(/[^0-9.-]/g, "")
-                            ) || 0;
-                          const amount =
-                            (percentage / 100) *
-                            ((loteData?.precio || 445000) - discountAmount);
-                          setMortgageCredit({ amount, percentage });
-                          handleFieldChange("mortgageCredit");
+                          handleDecimalInput(e.target.value, 'mortgage-credit-percentage', (percentage) => {
+                            const validatedPercentage = validatePercentage(percentage);
+                            const amount =
+                              (validatedPercentage / 100) *
+                              ((loteData?.precio || 445000) - discountAmount);
+                            setMortgageCredit({ amount, percentage: validatedPercentage });
+                            handleFieldChange("mortgageCredit");
+                          });
                         }}
                       />
                     </div>
@@ -1782,12 +1976,7 @@ const LotInfoModal = ({
                           placeholder="0.00 USD"
                           value={getFormattedValue(separation.amount, 'usd', 'separation-amount-directo')}
                           onFocus={() => handleInputFocus('separation-amount-directo')}
-                          onBlur={() => handleInputBlur('separation-amount-directo')}
-                          onChange={(e) => {
-                            const amount =
-                              parseFloat(
-                                e.target.value.replace(/[^0-9.-]/g, "")
-                              ) || 0;
+                          onBlur={() => handleDecimalBlur('separation-amount-directo', (amount) => {
                             const percentage =
                               (amount /
                                 ((loteData?.precio || 445000) -
@@ -1799,6 +1988,21 @@ const LotInfoModal = ({
                               enabled: true,
                             });
                             handleFieldChange("separation");
+                          })}
+                          onChange={(e) => {
+                            handleDecimalInput(e.target.value, 'separation-amount-directo', (amount) => {
+                              const percentage =
+                                (amount /
+                                  ((loteData?.precio || 445000) -
+                                    discountAmount)) *
+                                100;
+                              setSeparation({
+                                amount,
+                                percentage,
+                                enabled: true,
+                              });
+                              handleFieldChange("separation");
+                            });
                           }}
                         />
                         <input
@@ -1807,22 +2011,31 @@ const LotInfoModal = ({
                           placeholder="0.00 %"
                           value={getFormattedValue(separation.percentage, 'percentage', 'separation-percentage-directo')}
                           onFocus={() => handleInputFocus('separation-percentage-directo')}
-                          onBlur={() => handleInputBlur('separation-percentage-directo')}
-                          onChange={(e) => {
-                            const percentage = validatePercentage(
-                              parseFloat(
-                                e.target.value.replace(/[^0-9.-]/g, "")
-                              ) || 0
-                            );
+                          onBlur={() => handleDecimalBlur('separation-percentage-directo', (percentage) => {
+                            const validatedPercentage = validatePercentage(percentage);
                             const amount =
-                              (percentage / 100) *
+                              (validatedPercentage / 100) *
                               ((loteData?.precio || 445000) - discountAmount);
                             setSeparation({
                               amount,
-                              percentage,
+                              percentage: validatedPercentage,
                               enabled: true,
                             });
                             handleFieldChange("separation");
+                          })}
+                          onChange={(e) => {
+                            handleDecimalInput(e.target.value, 'separation-percentage-directo', (percentage) => {
+                              const validatedPercentage = validatePercentage(percentage);
+                              const amount =
+                                (validatedPercentage / 100) *
+                                ((loteData?.precio || 445000) - discountAmount);
+                              setSeparation({
+                                amount,
+                                percentage: validatedPercentage,
+                                enabled: true,
+                              });
+                              handleFieldChange("separation");
+                            });
                           }}
                         />
                       </div>
@@ -1838,32 +2051,51 @@ const LotInfoModal = ({
                         placeholder="0.00 USD"
                           value={getFormattedValue(initial.amount, 'usd', 'initial-amount-directo')}
                           onFocus={() => handleInputFocus('initial-amount-directo')}
-                          onBlur={() => handleInputBlur('initial-amount-directo')}
-                        onChange={(e) => {
-                          console.log("=== CAMBIANDO INPUT INICIAL ===");
-                          console.log(
-                            "Schedule ANTES de setInitial:",
-                            schedule
-                          );
-                          const amount =
-                            parseFloat(
-                              e.target.value.replace(/[^0-9.-]/g, "")
-                            ) || 0;
-                          const percentage =
-                            (amount /
-                              ((loteData?.precio || 445000) - discountAmount)) *
-                            100;
-                          console.log("Nuevo initial:", { amount, percentage });
-                          setInitial({ amount, percentage });
-                          handleFieldChange("initial");
-
-                          // Log después de setInitial para ver si se modifica el schedule
-                          setTimeout(() => {
+                          onBlur={() => handleDecimalBlur('initial-amount-directo', (amount) => {
+                            console.log("=== CAMBIANDO INPUT INICIAL ===");
                             console.log(
-                              "Schedule DESPUÉS de setInitial:",
+                              "Schedule ANTES de setInitial:",
                               schedule
                             );
-                          }, 100);
+                            const percentage =
+                              (amount /
+                                ((loteData?.precio || 445000) - discountAmount)) *
+                              100;
+                            console.log("Nuevo initial:", { amount, percentage });
+                            setInitial({ amount, percentage });
+                            handleFieldChange("initial");
+
+                            // Log después de setInitial para ver si se modifica el schedule
+                            setTimeout(() => {
+                              console.log(
+                                "Schedule DESPUÉS de setInitial:",
+                                schedule
+                              );
+                            }, 100);
+                          })}
+                        onChange={(e) => {
+                          handleDecimalInput(e.target.value, 'initial-amount-directo', (amount) => {
+                            console.log("=== CAMBIANDO INPUT INICIAL ===");
+                            console.log(
+                              "Schedule ANTES de setInitial:",
+                              schedule
+                            );
+                            const percentage =
+                              (amount /
+                                ((loteData?.precio || 445000) - discountAmount)) *
+                              100;
+                            console.log("Nuevo initial:", { amount, percentage });
+                            setInitial({ amount, percentage });
+                            handleFieldChange("initial");
+
+                            // Log después de setInitial para ver si se modifica el schedule
+                            setTimeout(() => {
+                              console.log(
+                                "Schedule DESPUÉS de setInitial:",
+                                schedule
+                              );
+                            }, 100);
+                          });
                         }}
                       />
                       <input
@@ -1872,26 +2104,39 @@ const LotInfoModal = ({
                         placeholder="0.00 %"
                           value={getFormattedValue(initial.percentage, 'percentage', 'initial-percentage-directo')}
                           onFocus={() => handleInputFocus('initial-percentage-directo')}
-                          onBlur={() => handleInputBlur('initial-percentage-directo')}
-                        onChange={(e) => {
-                          const percentage = validatePercentage(
-                            parseFloat(
-                              e.target.value.replace(/[^0-9.-]/g, "")
-                            ) || 0
-                          );
-                          const amount =
-                            (percentage / 100) *
-                            ((loteData?.precio || 445000) - discountAmount);
-                          setInitial({ amount, percentage });
-                          handleFieldChange("initial");
+                          onBlur={() => handleDecimalBlur('initial-percentage-directo', (percentage) => {
+                            const validatedPercentage = validatePercentage(percentage);
+                            const amount =
+                              (validatedPercentage / 100) *
+                              ((loteData?.precio || 445000) - discountAmount);
+                            setInitial({ amount, percentage: validatedPercentage });
+                            handleFieldChange("initial");
 
-                          // Log después de setInitial para ver si se modifica el schedule
-                          setTimeout(() => {
-                            console.log(
-                              "Schedule DESPUÉS de setInitial:",
-                              schedule
-                            );
-                          }, 100);
+                            // Log después de setInitial para ver si se modifica el schedule
+                            setTimeout(() => {
+                              console.log(
+                                "Schedule DESPUÉS de setInitial:",
+                                schedule
+                              );
+                            }, 100);
+                          })}
+                        onChange={(e) => {
+                          handleDecimalInput(e.target.value, 'initial-percentage-directo', (percentage) => {
+                            const validatedPercentage = validatePercentage(percentage);
+                            const amount =
+                              (validatedPercentage / 100) *
+                              ((loteData?.precio || 445000) - discountAmount);
+                            setInitial({ amount, percentage: validatedPercentage });
+                            handleFieldChange("initial");
+
+                            // Log después de setInitial para ver si se modifica el schedule
+                            setTimeout(() => {
+                              console.log(
+                                "Schedule DESPUÉS de setInitial:",
+                                schedule
+                              );
+                            }, 100);
+                          });
                         }}
                       />
                     </div>
@@ -2212,28 +2457,30 @@ const LotInfoModal = ({
                           readOnly={item.isEquivalent && /^Cuota\s/.test(item.item)}
                           onChange={(e) => {
                             if (!item.isEquivalent) {
-                              const percentage =
-                                parseFloat(
-                                  e.target.value.replace(/[^0-9.-]/g, "")
-                                ) || 0;
-                              handleInstallmentChange(
-                                index,
-                                "percentage",
-                                percentage
-                              );
+                              handleDecimalInput(e.target.value, `schedule-percentage-${index}`, (percentage) => {
+                                const validatedPercentage = validatePercentage(percentage);
+                                handleInstallmentChange(
+                                  index,
+                                  "percentage",
+                                  validatedPercentage
+                                );
+                              });
                             }
                           }}
-                          onFocus={() => {
-                            setFocusedInputs(prev => ({
-                              ...prev,
-                              [`schedule-percentage-${index}`]: true,
-                            }));
-                          }}
+                          onFocus={() => handleInputFocus(`schedule-percentage-${index}`)}
                           onBlur={() => {
-                            setFocusedInputs(prev => ({
-                              ...prev,
-                              [`schedule-percentage-${index}`]: false,
-                            }));
+                            if (!item.isEquivalent) {
+                              handleDecimalBlur(`schedule-percentage-${index}`, (percentage) => {
+                                const validatedPercentage = validatePercentage(percentage);
+                                handleInstallmentChange(
+                                  index,
+                                  "percentage",
+                                  validatedPercentage
+                                );
+                              });
+                            } else {
+                              handleInputBlur(`schedule-percentage-${index}`);
+                            }
                           }}
                         />
                       </td>
@@ -2251,24 +2498,20 @@ const LotInfoModal = ({
                           readOnly={item.isEquivalent && /^Cuota\s/.test(item.item)}
                           onChange={(e) => {
                             if (!item.isEquivalent) {
-                              const amount =
-                                parseFloat(
-                                  e.target.value.replace(/[^0-9.-]/g, "")
-                                ) || 0;
-                              handleInstallmentChange(index, "amount", amount);
+                              handleDecimalInput(e.target.value, `schedule-amount-${index}`, (amount) => {
+                                handleInstallmentChange(index, "amount", amount);
+                              });
                             }
                           }}
-                          onFocus={() => {
-                            setFocusedInputs(prev => ({
-                              ...prev,
-                              [`schedule-amount-${index}`]: true,
-                            }));
-                          }}
+                          onFocus={() => handleInputFocus(`schedule-amount-${index}`)}
                           onBlur={() => {
-                            setFocusedInputs(prev => ({
-                              ...prev,
-                              [`schedule-amount-${index}`]: false,
-                            }));
+                            if (!item.isEquivalent) {
+                              handleDecimalBlur(`schedule-amount-${index}`, (amount) => {
+                                handleInstallmentChange(index, "amount", amount);
+                              });
+                            } else {
+                              handleInputBlur(`schedule-amount-${index}`);
+                            }
                           }}
                         />
                       </td>
