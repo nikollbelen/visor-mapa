@@ -880,26 +880,31 @@ async function handleAreasComunes() {
   let areasData = null;
 
   try {
-    const response = await fetch("./data/areas.geojson");
-    areasData = await response.json();
+    // Cargar datos desde la API de Apico
+    const response = await fetch("https://api.apico.dev/v1/gE2H1N/1vL47XFQKS6ajoKccemle7MYYDStFVawgnopVpfzz-UA/values/areas");
+    const apiData = await response.json();
+    
+    // Usar directamente los datos de la API sin transformar a GeoJSON
+    areasData = apiData;
 
-    if (areasData && areasData.features) {
+    if (areasData && areasData.values) {
       const positions = [];
 
-      // Crear marcadores para cada feature en el GeoJSON
-      areasData.features.forEach((feature) => {
-        const fid = feature.properties.fid;
-        const name = feature.properties.name;
-        const marker = feature.properties.marker;
-        const image = feature.properties.image;
-        const coordinates = feature.geometry.coordinates;
+      // Crear marcadores para cada área usando directamente los datos de la API
+      areasData.values.forEach((row) => {
+        const fid = parseInt(row[0]);
+        const name = row[1];
+        const marker = row[2];
+        const image = row[3];
+        const longitude = parseFloat(row[4]);
+        const latitude = parseFloat(row[5]);
 
         // Crear marcador con imagen areas_comunes.svg
         viewer.entities.add({
           id: `area_comun_${fid}`,
           position: window.Cesium.Cartesian3.fromDegrees(
-            coordinates[0],
-            coordinates[1]
+            longitude,
+            latitude
           ),
           billboard: {
             image: marker,
@@ -939,12 +944,12 @@ async function handleAreasComunes() {
             fid: fid,
             name: name,
             image: image,
-            coordinates: coordinates,
+            coordinates: [longitude, latitude],
           },
         });
 
         positions.push(
-          window.Cesium.Cartesian3.fromDegrees(coordinates[0], coordinates[1])
+          window.Cesium.Cartesian3.fromDegrees(longitude, latitude)
         );
       });
 
@@ -969,7 +974,7 @@ async function handleAreasComunes() {
 }
 // Function to populate the common areas modal with GeoJSON data
 function populateAreasModal(areasData) {
-  // Disparar evento para que React maneje el modal
+  // Pasar los datos directamente de la API sin transformar
   window.dispatchEvent(
     new CustomEvent("populateAreasModal", {
       detail: { areasData: areasData },

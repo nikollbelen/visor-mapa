@@ -94,11 +94,11 @@ const AreasModal = ({ isVisible = false, onClose, areasData }: AreasModalProps) 
       <div className={`common-areas-modal-content ${isMobile ? 'mobile-modal-content' : ''}`}>
         <div className="common-areas-section">
           <div className={`common-areas-grid ${isMobile ? 'mobile-grid' : ''}`} id="commonAreasGrid">
-            {areasData && areasData.features ? (
-              areasData.features.map((feature: any) => {
-                const fid = feature.properties.fid;
-                const name = feature.properties.name;
-                const image = feature.properties.image;
+            {areasData && areasData.values ? (
+              areasData.values.map((row: any) => {
+                const fid = parseInt(row[0]);
+                const name = row[1];
+                const image = row[3];
 
                 return (
                   <div key={fid} className={`common-areas-card background-container border-container ${isMobile ? 'mobile-card' : ''}`} data-marker={`area_comun_${fid}`}>
