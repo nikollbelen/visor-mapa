@@ -1,0 +1,271 @@
+/* Login Modal Styles - Basado en el diseño de ContactModal */
+.login-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1003;
+  animation: loginFadeIn 0.3s ease-out;
+}
+
+.login-modal {
+  background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  max-width: 450px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  animation: loginSlideIn 0.3s ease-out;
+  border: 2px solid #333;
+  color: white;
+}
+
+.login-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 2px solid #333;
+  background: linear-gradient(135deg, #333 0%, #222 100%);
+  border-radius: 12px 12px 0 0;
+}
+
+.login-modal-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: white;
+}
+
+.login-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #ccc;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 6px;
+  transition: all 0.3s;
+}
+
+.login-modal-close:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  transform: scale(1.1);
+}
+
+.login-modal-content {
+  padding: 24px;
+  background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%);
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.login-form .form-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  border-bottom: 1px solid #444;
+  padding-bottom: 8px;
+}
+
+.login-form .input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.login-form .form-input {
+  padding: 12px 16px;
+  border: 2px solid #444;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  transition: all 0.3s;
+}
+
+.login-form .form-input::placeholder {
+  color: #aaa;
+}
+
+.login-form .form-input:focus {
+  outline: none;
+  border-color: #10b981;
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+.login-form .form-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.login-form .form-input.error {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.login-form .form-input.error:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+}
+
+.error-message {
+  color: #ef4444;
+  font-size: 0.75rem;
+  margin-top: 4px;
+  margin-bottom: 8px;
+}
+
+.login-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid #ef4444;
+  border-radius: 8px;
+  color: #ef4444;
+  font-size: 0.875rem;
+  margin-top: 16px;
+}
+
+.login-error i {
+  font-size: 1rem;
+}
+
+.login-options {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #444;
+}
+
+.login-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px 24px;
+  border-top: 2px solid #333;
+  background: linear-gradient(135deg, #333 0%, #222 100%);
+  border-radius: 0 0 12px 12px;
+}
+
+.login-modal .btn-secondary {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #444 0%, #333 100%);
+  color: white;
+  border: 2px solid #555;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.login-modal .btn-secondary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #555 0%, #444 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.login-modal .btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.login-modal .btn-primary {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #10b981 0%, #0ea472 100%);
+  color: white;
+  border: 2px solid #10b981;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.login-modal .btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #0ea472 0%, #0d8a5f 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
+}
+
+.login-modal .btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.login-modal .btn-primary i {
+  font-size: 0.875rem;
+}
+
+/* Animaciones específicas para LoginModal */
+@keyframes loginFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes loginSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Responsive específico para LoginModal */
+@media (max-width: 640px) {
+  .login-modal {
+    width: 95%;
+    margin: 20px;
+  }
+  
+  .login-modal-header,
+  .login-modal-content,
+  .login-modal-footer {
+    padding: 16px;
+  }
+  
+  .login-options {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  
+  .login-modal-footer {
+    flex-direction: column;
+  }
+  
+  .login-modal .btn-secondary,
+  .login-modal .btn-primary {
+    width: 100%;
+    justify-content: center;
+  }
+}

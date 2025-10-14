@@ -6,6 +6,7 @@ interface ContactModalProps {
   type: "print" | "save" | "email";
   onClose: () => void;
   onSubmit: (data: ContactData) => void;
+  currentUser?: {id: string; nombre: string; email: string} | null;
 }
 
 interface ContactData {
@@ -21,10 +22,14 @@ interface SellerData {
   email: string;
 }
 
-const ContactModal = ({ isVisible, type, onClose, onSubmit }: ContactModalProps) => {
+const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: ContactModalProps) => {
   const [contactData, setContactData] = useState<ContactData>({
-    vendedorId: '',
-    vendedor: { id: '', nombre: '', email: '' },
+    vendedorId: currentUser?.id || '',
+    vendedor: currentUser ? { 
+      id: currentUser.id, 
+      nombre: currentUser.nombre, 
+      email: currentUser.email 
+    } : { id: '', nombre: '', email: '' },
     cliente: { nombre: '', email: '', telefono: '' },
     fileName: ''
   });
@@ -35,6 +40,27 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit }: ContactModalProps)
     vendedorId: '',
     cliente: { nombre: '', email: '', telefono: '' }
   });
+
+  // Actualizar datos de vendedor cuando cambie currentUser
+  useEffect(() => {
+    if (currentUser) {
+      setContactData(prev => ({
+        ...prev,
+        vendedorId: currentUser.id,
+        vendedor: { 
+          id: currentUser.id, 
+          nombre: currentUser.nombre, 
+          email: currentUser.email 
+        }
+      }));
+    } else {
+      setContactData(prev => ({
+        ...prev,
+        vendedorId: '',
+        vendedor: { id: '', nombre: '', email: '' }
+      }));
+    }
+  }, [currentUser]);
 
   // Validar email
   const validateEmail = (email: string) => {
@@ -106,8 +132,8 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit }: ContactModalProps)
   }, [contactData.vendedorId, sellers]);
 
   const handleSubmit = () => {
-    // Validar todos los campos
-    const hasErrors = !!(errors.vendedorId || errors.cliente.nombre || errors.cliente.email || errors.cliente.telefono);
+    // Validar todos los campos (solo cliente, nunca vendedor)
+    const hasErrors = !!(errors.cliente.nombre || errors.cliente.email || errors.cliente.telefono);
     
     if (hasErrors) {
       alert('Por favor corrija los errores antes de continuar');
@@ -115,7 +141,10 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit }: ContactModalProps)
     }
 
     // Validar que los campos requeridos no estén vacíos
-    if (!contactData.vendedorId || !contactData.cliente.nombre || !contactData.cliente.email) {
+    // Solo requiere datos del cliente (nunca requiere vendedorId)
+    const hasRequiredFields = contactData.cliente.nombre && contactData.cliente.email;
+
+    if (!hasRequiredFields) {
       alert('Por favor complete todos los campos requeridos');
       return;
     }
@@ -157,27 +186,22 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit }: ContactModalProps)
         <div className="contact-modal-content">
           {(type === "print" || type === "save") ? (
             <div className="contact-form">
-              <div className="form-section">
-                <h4>Vendedor</h4>
-                <div className="input-group">
-                  <input
-                    type="text"
-                    className={`form-input ${errors.vendedorId ? 'error' : ''}`}
-                    placeholder="ID del vendedor"
-                    value={contactData.vendedorId}
-                    onChange={(e) => {
-                      setContactData({ ...contactData, vendedorId: e.target.value.trim() });
-                      validateField('id', e.target.value.trim(), 'vendedorId');
-                    }}
-                  />
-                  {errors.vendedorId && <div className="error-message">{errors.vendedorId}</div>}
-                </div>
-                {contactData.vendedor?.id && (
-                  <div style={{ color: '#9ca3af', fontSize: 12, marginTop: 6 }}>
-                    {contactData.vendedor.nombre} · {contactData.vendedor.email}
+              {/* Solo mostrar información del vendedor si está logueado */}
+              {currentUser && (
+                <div className="form-section">
+                  <h4>Vendedor</h4>
+                  <div style={{ 
+                    padding: '12px 16px', 
+                    background: 'rgba(16, 185, 129, 0.1)', 
+                    border: '1px solid #10b981', 
+                    borderRadius: '8px',
+                    color: '#10b981',
+                    fontSize: '14px'
+                  }}>
+                    <strong>{currentUser.nombre}</strong> · {currentUser.email}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               <div className="form-section">
                 <h4>Cliente</h4>
@@ -245,18 +269,22 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit }: ContactModalProps)
             </div>
           ) : (
             <div className="contact-form">
-              <div className="form-section">
-                <h4>Vendedor</h4>
-                <div className="input-group">
-                  <input
-                    type="text"
-                    className={`form-input`}
-                    placeholder="ID del vendedor (opcional)"
-                    value={contactData.vendedorId}
-                    onChange={(e) => setContactData({ ...contactData, vendedorId: e.target.value.trim() })}
-                  />
+              {/* Solo mostrar información del vendedor si está logueado */}
+              {currentUser && (
+                <div className="form-section">
+                  <h4>Vendedor</h4>
+                  <div style={{ 
+                    padding: '12px 16px', 
+                    background: 'rgba(16, 185, 129, 0.1)', 
+                    border: '1px solid #10b981', 
+                    borderRadius: '8px',
+                    color: '#10b981',
+                    fontSize: '14px'
+                  }}>
+                    <strong>{currentUser.nombre}</strong> · {currentUser.email}
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="form-section">
                 <h4>Cliente</h4>

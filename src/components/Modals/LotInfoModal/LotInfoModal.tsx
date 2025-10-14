@@ -15,19 +15,52 @@ interface LotInfoModalProps {
   isVisible?: boolean;
   onClose?: () => void;
   loteData?: any;
+  currentUser?: {id: string; nombre: string; email: string} | null;
 }
 
 const LotInfoModal = ({
   isVisible = false,
   onClose,
   loteData,
+  currentUser,
 }: LotInfoModalProps) => {
-  // Debug: Log lotData to see what data is being passed
-  console.log("LotInfoModal - loteData recibido:", loteData);
   const [showQuotation, setShowQuotation] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const [discountAmount, setDiscountAmount] = useState(0);
+  const [userState, setUserState] = useState(currentUser);
   const [discountPercentage, setDiscountPercentage] = useState(0);
+  const [sellers, setSellers] = useState<Array<{id: string; nombre: string; email: string; password: string; whatsapp: string}>>([]);
+
+  // Cargar vendedores desde la API
+  useEffect(() => {
+    fetch('https://api.apico.dev/v1/gE2H1N/1vL47XFQKS6ajoKccemle7MYYDStFVawgnopVpfzz-UA/values/sellers')
+      .then(res => res.json())
+      .then((apiData) => {
+        // Transformar los datos de la API al formato esperado
+        const sellersData = apiData.values.map((row: any) => ({
+          id: row[0],
+          nombre: row[1],
+          email: row[2],
+          password: row[3],
+          whatsapp: row[4]
+        }));
+        setSellers(sellersData);
+      })
+      .catch((error) => {
+        console.error('Error cargando sellers:', error);
+        setSellers([]);
+      });
+  }, []);
+
+  // Sincronizar el estado del usuario cuando cambie la prop
+  useEffect(() => {
+    setUserState(currentUser);
+  }, [currentUser]);
+
+  // Debug: Log user state changes
+  useEffect(() => {
+    console.log("LotInfoModal - userState changed:", userState);
+  }, [userState]);
 
   // Payment schedule states
   const [paymentMethod, setPaymentMethod] = useState("credito_directo");
@@ -999,6 +1032,74 @@ const LotInfoModal = ({
     }
   };
 
+  const handleWhatsAppClick = () => {
+    // Seleccionar un vendedor aleatorio
+    if (sellers.length === 0) {
+      alert('No hay vendedores disponibles en este momento. Por favor, intente más tarde.');
+      return;
+    }
+
+    const randomIndex = Math.floor(Math.random() * sellers.length);
+    const selectedSeller = sellers[randomIndex];
+    
+    // Crear mensaje para WhatsApp
+    const loteInfo = lotData?.lot || 'N/A';
+    const message = `Hola ${selectedSeller.nombre}, me interesa obtener más información sobre el lote ${loteInfo}. Por favor, contácteme.`;
+    const encodedMessage = encodeURIComponent(message);
+    
+    // Usar el número de WhatsApp del vendedor seleccionado
+    const whatsappUrl = `https://wa.me/${selectedSeller.whatsapp}?text=${encodedMessage}`;
+    
+    console.log(`Enviando WhatsApp a ${selectedSeller.nombre} (${selectedSeller.whatsapp})`);
+    
+    // Abrir WhatsApp en una nueva ventana
+    window.open(whatsappUrl, '_blank');
+  };
+
+  // Función para guardar información del cliente en la API
+  const saveClientToAPI = async (contactData: any) => {
+    try {
+      
+      // Preparar datos del cliente
+      const clientData = {
+        values: [
+          [
+            contactData.cliente.nombre,
+            contactData.cliente.email,
+            contactData.cliente.telefono || '',
+            lotData?.lot || 'N/A'
+          ]
+        ]
+      };
+
+      console.log('Guardando cliente en API:', clientData);
+
+      // Enviar datos a la API con parámetros requeridos
+      const apiUrl = new URL('https://api.apico.dev/v1/gE2H1N/1vL47XFQKS6ajoKccemle7MYYDStFVawgnopVpfzz-UA/values/clientes:append');
+      apiUrl.searchParams.append('valueInputOption', 'USER_ENTERED');
+      apiUrl.searchParams.append('insertDataOption', 'INSERT_ROWS');
+      apiUrl.searchParams.append('includeValuesInResponse', 'true');
+
+      console.log('URL de la API:', apiUrl.toString());
+
+      const response = await fetch(apiUrl.toString(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(clientData)
+      });
+
+      if (response.ok) {
+        console.log('Cliente guardado exitosamente en la API');
+      } else {
+        console.error('Error al guardar cliente en la API:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Error al guardar cliente:', error);
+    }
+  };
+
   const handleQuotationClick = () => {
     if (isAnimating) return; // Prevent multiple clicks during animation
 
@@ -1183,11 +1284,13 @@ const LotInfoModal = ({
         <div class="info-section">
           <h2>Datos de Contacto</h2>
           <div class="info-grid">
+            ${userState ? `
             <div class="info-item">
               <div class="info-label">Vendedor:</div>
-              <div>${contactData.vendedor?.nombre || ''} ${contactData.vendedorId ? `(${contactData.vendedorId})` : ''}</div>
+              <div>${contactData.vendedor?.nombre || ''}</div>
               <div style="color: #666; font-size: 14px;">${contactData.vendedor?.email || ''}</div>
             </div>
+            ` : ''}
             <div class="info-item">
               <div class="info-label">Cliente:</div>
               <div>${contactData.cliente?.nombre || ''}</div>
@@ -1254,25 +1357,34 @@ const LotInfoModal = ({
     // Información de contacto
     doc.text('DATOS DE CONTACTO', 20, 80);
     doc.setFontSize(12);
-    const vendedorIdText = contactData.vendedorId ? ` (${contactData.vendedorId})` : '';
-    const vendedorNombre = contactData.vendedor?.nombre || '';
-    const vendedorEmail = contactData.vendedor?.email || '';
+    
+    let yPosition = 95;
+    
+    // Solo mostrar información del vendedor si está logueado
+    if (userState) {
+      const vendedorNombre = contactData.vendedor?.nombre || '';
+      const vendedorEmail = contactData.vendedor?.email || '';
+      doc.text(`Vendedor: ${vendedorNombre}`, 20, yPosition);
+      doc.text(`Email vendedor: ${vendedorEmail}`, 20, yPosition + 10);
+      yPosition += 20;
+    }
+    
+    // Información del cliente
     const clienteNombre = contactData.cliente?.nombre || '';
     const clienteEmail = contactData.cliente?.email || '';
     const clienteTelefono = contactData.cliente?.telefono || '';
-    doc.text(`Vendedor${vendedorIdText}: ${vendedorNombre}`, 20, 95);
-    doc.text(`Email vendedor: ${vendedorEmail}`, 20, 105);
-    doc.text(`Cliente: ${clienteNombre}`, 20, 115);
-    doc.text(`Email cliente: ${clienteEmail}`, 20, 125);
+    doc.text(`Cliente: ${clienteNombre}`, 20, yPosition);
+    doc.text(`Email cliente: ${clienteEmail}`, 20, yPosition + 10);
     if (clienteTelefono) {
-      doc.text(`Teléfono cliente: ${clienteTelefono}`, 20, 135);
+      doc.text(`Teléfono cliente: ${clienteTelefono}`, 20, yPosition + 20);
     }
     
     // Cronograma de pagos
     if (schedule.length > 0) {
-      doc.text('CRONOGRAMA DE PAGOS', 20, 145);
+      const cronogramaY = userState ? 155 : 135; // Ajustar según si hay vendedor o no
+      doc.text('CRONOGRAMA DE PAGOS', 20, cronogramaY);
       
-      let yPosition = 160;
+      let yPosition = cronogramaY + 15;
       schedule.forEach((item) => {
         if (yPosition > 280) {
           doc.addPage();
@@ -1321,6 +1433,11 @@ const LotInfoModal = ({
   };
 
   const handleContactSubmit = (contactData: any) => {
+    // Guardar información del cliente en la API si no está logueado
+    if (!userState) {
+      saveClientToAPI(contactData);
+    }
+
     switch (modalType) {
       case "print": {
         // Abrir diálogo de impresión con datos de la cotización
@@ -1342,7 +1459,7 @@ const LotInfoModal = ({
         const emailData = {
           to: contactData.cliente.email,
           subject: `Cotización - ${lotData.lot}`,
-          body: `Estimado/a ${contactData.cliente.nombre},\n\nAdjunto la cotización del lote ${lotData.lot}.\n\nSaludos,\n${contactData.vendedor.nombre}`
+          body: `Estimado/a ${contactData.cliente.nombre},\n\nAdjunto la cotización del lote ${lotData.lot}.${userState ? `\n\nSaludos,\n${contactData.vendedor.nombre}` : '\n\nSaludos'}`
         };
         
         // Copiar al portapapeles
@@ -1486,13 +1603,40 @@ const LotInfoModal = ({
             </div>
           </div>
 
-          <button className="lot-whatsapp-btn" style={{ 
-                background: lotData.status === 'disponible' 
-                  ? '#1DB779'  
-                  : 'linear-gradient(135deg, #333 0%, #444 100%)' 
-              }} onClick={lotData.status === 'disponible' ? handleQuotationClick : undefined}>
-            <span>{lotData.status === 'disponible' ? 'Cotizar' : 'Este lote ya no esta disponible'}</span>
-          </button>
+          {/* Botones condicionales según el estado de login */}
+          {userState ? (
+            // Usuario logueado: Solo botón de cotizar
+            <button className="lot-whatsapp-btn" style={{ 
+                  background: lotData.status === 'disponible' 
+                    ? '#1DB779'  
+                    : 'linear-gradient(135deg, #333 0%, #444 100%)' 
+                }} onClick={lotData.status === 'disponible' ? handleQuotationClick : undefined}>
+              <span>{lotData.status === 'disponible' ? 'Cotizar' : 'Este lote ya no esta disponible'}</span>
+            </button>
+          ) : (
+            // Usuario no logueado: Dos botones
+            <div className="lot-buttons-container">
+              <button 
+                className="lot-contact-btn" 
+                onClick={handleWhatsAppClick}
+                disabled={lotData.status !== 'disponible'}
+              >
+                <i className="fab fa-whatsapp"></i>
+                <span>Contactar</span>
+              </button>
+              <button 
+                className="lot-whatsapp-btn" 
+                style={{ 
+                  background: lotData.status === 'disponible' 
+                    ? '#1DB779'  
+                    : 'linear-gradient(135deg, #333 0%, #444 100%)' 
+                }} 
+                onClick={lotData.status === 'disponible' ? handleQuotationClick : undefined}
+              >
+                <span>{lotData.status === 'disponible' ? 'Cotizar' : 'Este lote ya no esta disponible'}</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -2587,6 +2731,7 @@ const LotInfoModal = ({
         type={modalType}
         onClose={() => setShowContactModal(false)}
         onSubmit={handleContactSubmit}
+        currentUser={userState}
       />
     </div>
   );

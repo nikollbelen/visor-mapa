@@ -1,11 +1,29 @@
 import { useState, useEffect } from 'react';
 import SidebarItem from './SidebarItem';
+import LoginModal from '../Modals/LoginModal/LoginModal';
+import UserInfoModal from '../Modals/UserInfoModal/UserInfoModal';
 import './Sidebar.css';
 
 const Sidebar = () => {
   const [activeItem, setActiveItem] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isUserInfoModalOpen, setIsUserInfoModalOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{id: string; nombre: string; email: string} | null>(null);
+
+  // Cargar usuario desde localStorage al iniciar
+  useEffect(() => {
+    const savedUser = localStorage.getItem('currentUser');
+    if (savedUser) {
+      try {
+        setCurrentUser(JSON.parse(savedUser));
+      } catch (error) {
+        console.error('Error al cargar usuario desde localStorage:', error);
+        localStorage.removeItem('currentUser');
+      }
+    }
+  }, []);
 
   // Detectar si es móvil o tablet
   useEffect(() => {
@@ -48,7 +66,53 @@ const Sidebar = () => {
     setIsMenuOpen(!isMenuOpen);
   };
 
+  const handleLogin = (user: {id: string; nombre: string; email: string}) => {
+    // Actualizar el estado del usuario logueado
+    setCurrentUser(user);
+    console.log('Usuario logueado:', user);
+    
+    // Guardar en localStorage para persistir la sesión
+    localStorage.setItem('currentUser', JSON.stringify(user));
+    
+    // Disparar evento personalizado para notificar cambios
+    const event = new CustomEvent('userStateChanged', { detail: user });
+    window.dispatchEvent(event);
+  };
+
+  const handleCloseLoginModal = () => {
+    setIsLoginModalOpen(false);
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('currentUser');
+    
+    // Disparar evento personalizado para notificar cambios
+    const event = new CustomEvent('userStateChanged', { detail: null });
+    window.dispatchEvent(event);
+  };
+
+  const handleCloseUserInfoModal = () => {
+    setIsUserInfoModalOpen(false);
+  };
+
   const handleItemClick = (itemId: string) => {
+    // Si es el botón de usuario
+    if (itemId === 'usuario') {
+      if (currentUser) {
+        // Si ya está logueado, mostrar modal de información del usuario
+        setIsUserInfoModalOpen(true);
+      } else {
+        // Si no está logueado, abrir modal de login
+        setIsLoginModalOpen(true);
+      }
+      // Cerrar menú en móvil si está abierto
+      if (isMobile) {
+        setIsMenuOpen(false);
+      }
+      return;
+    }
+
     // Verificar el estado real del botón en el DOM
     const buttonElement = document.getElementById(itemId);
     const isCurrentlyActive = buttonElement?.classList.contains('active');
@@ -137,6 +201,12 @@ const Sidebar = () => {
       icon: '/images/sidebar/icon_video.svg',
       alt: 'Video',
       text: 'Video'
+    },
+    {
+      id: 'usuario',
+      icon: '/images/sidebar/icon_user.png',
+      alt: 'Usuario',
+      text: currentUser ? currentUser.nombre : 'Invitado'
     }
   ];
 
@@ -206,6 +276,23 @@ const Sidebar = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal de Login */}
+      <LoginModal
+        isVisible={isLoginModalOpen}
+        onClose={handleCloseLoginModal}
+        onLogin={handleLogin}
+      />
+
+      {/* Modal de Información del Usuario */}
+      {currentUser && (
+        <UserInfoModal
+          isVisible={isUserInfoModalOpen}
+          user={currentUser}
+          onClose={handleCloseUserInfoModal}
+          onLogout={handleLogout}
+        />
       )}
     </>
   );

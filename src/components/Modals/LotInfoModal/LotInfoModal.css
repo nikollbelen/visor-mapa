@@ -356,6 +356,55 @@
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }
 
+/* Contenedor de botones para usuarios no logueados */
+.lot-buttons-container {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
+
+/* Botón de contacto WhatsApp */
+.lot-contact-btn {
+  flex: 1;
+  background: linear-gradient(135deg, #25d366 0%, #128c7e 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(37, 211, 102, 0.2);
+}
+
+.lot-contact-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #128c7e 0%, #0d6b5f 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(37, 211, 102, 0.3);
+}
+
+.lot-contact-btn:disabled {
+  background: linear-gradient(135deg, #333 0%, #444 100%);
+  cursor: not-allowed;
+  opacity: 0.6;
+  transform: none;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.lot-contact-btn i {
+  font-size: 18px;
+}
+
+/* Ajustar el botón de cotizar cuando está en el contenedor */
+.lot-buttons-container .lot-whatsapp-btn {
+  flex: 1;
+}
+
 
 /* ========================================
    ESTILOS PARA LA COTIZACIÓN (CARA TRASERA) - DISEÑO EXACTO
