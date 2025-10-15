@@ -33,6 +33,7 @@ const LoginModal = ({ isVisible, onClose, onLogin }: LoginModalProps) => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [sellers, setSellers] = useState<SellerData[]>([]);
+  const [showForgot, setShowForgot] = useState(false);
 
   // Cargar sellers desde la API
   useEffect(() => {
@@ -135,72 +136,116 @@ const LoginModal = ({ isVisible, onClose, onLogin }: LoginModalProps) => {
   return (
     <div className="login-modal-overlay">
       <div className="login-modal">
-        <div className="login-modal-header">
-          <h2 className="login-modal-title">Iniciar Sesión</h2>
-          <button className="login-modal-close" onClick={onClose}>
-            <i className="fas fa-times"></i>
-          </button>
+        <button className="login-modal-close" onClick={onClose}>
+          <i className="fas fa-times"></i>
+        </button>
+
+        <div className="login-hero">
+          <img
+            className="login-logo"
+            src="/images/init/init-logo.svg"
+            alt="logo"
+          />
+          {!showForgot ? (
+            <>
+              <h1 className="login-title">Bienvenido</h1>
+              <p className="login-subtitle">Por favor, ingresa los datos requeridos</p>
+            </>
+          ) : (
+            <>
+              <p className="login-subtitle forgot-desc">Ingresa tu correo electrónico enlazado a tu usuario y te enviaremos un link para reiniciar tu contraseña</p>
+            </>
+          )}
         </div>
 
         <div className="login-modal-content">
-          <form className="login-form" onSubmit={handleSubmit}>
-            <div className="form-section">
-              <h4>Credenciales</h4>
+          {!showForgot ? (
+            <form className="login-form" onSubmit={handleSubmit}>
               <div className="input-group">
+                <label className="form-label" htmlFor="email">Usuario</label>
                 <input
+                  id="email"
                   type="email"
                   className={`form-input ${errors.email ? 'error' : ''}`}
-                  placeholder="Correo electrónico"
+                  placeholder="Campo de entrada"
                   value={credentials.email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
                   disabled={isLoading}
                 />
                 {errors.email && <div className="error-message">{errors.email}</div>}
-                
+
+                <label className="form-label" htmlFor="password">Contraseña</label>
                 <input
+                  id="password"
                   type="password"
                   className={`form-input ${errors.password ? 'error' : ''}`}
-                  placeholder="Contraseña"
+                  placeholder="Campo de entrada"
                   value={credentials.password}
                   onChange={(e) => handleInputChange('password', e.target.value)}
                   disabled={isLoading}
                 />
                 {errors.password && <div className="error-message">{errors.password}</div>}
               </div>
-            </div>
 
-            {/* Mensaje de error de login */}
-            {errors.login && (
-              <div className="login-error">
-                <i className="fas fa-exclamation-triangle"></i>
-                {errors.login}
+              <div className="login-row">
+                <label className="remember">
+                  <input
+                    type="checkbox"
+                    className="remember-checkbox"
+                    defaultChecked
+                  />
+                  Recordarme
+                </label>
+                <button type="button" className="forgot" onClick={() => setShowForgot(true)}>
+                  Olvidé mi contraseña
+                </button>
               </div>
-            )}
-          </form>
-        </div>
 
-        <div className="login-modal-footer">
-          <button 
-            className="btn-secondary" 
-            onClick={onClose}
-            disabled={isLoading}
-          >
-            Cancelar
-          </button>
-          <button 
-            className="btn-primary" 
-            onClick={handleSubmit}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <i className="fas fa-spinner fa-spin"></i>
-                Iniciando...
-              </>
-            ) : (
-              'Iniciar Sesión'
-            )}
-          </button>
+              {errors.login && (
+                <div className="login-error">
+                  <i className="fas fa-exclamation-triangle"></i>
+                  {errors.login}
+                </div>
+              )}
+
+              <div className="login-actions">
+                <button 
+                  type="submit"
+                  className="btn-primary btn-submit" 
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Ingresando…' : 'Ingresar'}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <form className="login-form" onSubmit={(e) => { e.preventDefault(); alert('Se envió un link al correo ingresado'); }}>
+              <div className="input-group">
+                <label className="form-label" htmlFor="recover-email">Correo Electrónico</label>
+                <input
+                  id="recover-email"
+                  type="email"
+                  className="form-input"
+                  placeholder="Campo de entrada"
+                  value={credentials.email}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
+                  disabled={isLoading}
+                />
+              </div>
+
+              <div className="login-actions">
+                <button type="submit" className="btn-primary btn-submit" disabled={isLoading}>
+                  Enviar link
+                </button>
+              </div>
+
+              <div className="login-row" style={{ marginTop: 16 }}>
+                <button type="button" className="forgot" onClick={() => setShowForgot(false)}>
+                  Volver a iniciar sesión
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       </div>
     </div>

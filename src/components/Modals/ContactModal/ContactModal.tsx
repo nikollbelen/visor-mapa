@@ -12,7 +12,7 @@ interface ContactModalProps {
 interface ContactData {
   vendedorId?: string;
   vendedor?: { id?: string; nombre: string; email: string };
-  cliente: { nombre: string; email: string; telefono?: string };
+  cliente: { nombre: string; apellido?: string; dni?: string; email: string; telefono?: string };
   fileName?: string; // Para el tipo "save"
 }
 
@@ -38,7 +38,7 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
 
   const [errors, setErrors] = useState({
     vendedorId: '',
-    cliente: { nombre: '', email: '', telefono: '' }
+    cliente: { nombre: '', apellido: '', dni: '', email: '', telefono: '' }
   });
 
   // Actualizar datos de vendedor cuando cambie currentUser
@@ -80,6 +80,12 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
     return phoneRegex.test(phone);
   };
 
+  // Validar DNI (solo dígitos, 8-12 aprox.)
+  const validateDni = (dni: string) => {
+    const dniRegex = /^\d{8,12}$/;
+    return dniRegex.test(dni);
+  };
+
   // Validar campo específico
   const validateField = (field: string, value: string, type: 'vendedorId' | 'cliente') => {
     const newErrors: typeof errors = JSON.parse(JSON.stringify(errors));
@@ -89,6 +95,14 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
       if (field === 'nombre') {
         newErrors.cliente.nombre = value && !validateName(value)
           ? 'El nombre solo puede contener letras y espacios'
+          : '';
+      } else if (field === 'apellido') {
+        newErrors.cliente.apellido = value && !validateName(value)
+          ? 'El apellido solo puede contener letras y espacios'
+          : '';
+      } else if (field === 'dni') {
+        newErrors.cliente.dni = value && !validateDni(value)
+          ? 'Ingrese un DNI válido'
           : '';
       } else if (field === 'email') {
         newErrors.cliente.email = value && !validateEmail(value)
@@ -133,7 +147,7 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
 
   const handleSubmit = () => {
     // Validar todos los campos (solo cliente, nunca vendedor)
-    const hasErrors = !!(errors.cliente.nombre || errors.cliente.email || errors.cliente.telefono);
+    const hasErrors = !!(errors.cliente.nombre || errors.cliente.apellido || errors.cliente.dni || errors.cliente.email || errors.cliente.telefono);
     
     if (hasErrors) {
       alert('Por favor corrija los errores antes de continuar');
@@ -141,8 +155,7 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
     }
 
     // Validar que los campos requeridos no estén vacíos
-    // Solo requiere datos del cliente (nunca requiere vendedorId)
-    const hasRequiredFields = contactData.cliente.nombre && contactData.cliente.email;
+    const hasRequiredFields = contactData.cliente.nombre && contactData.cliente.apellido && contactData.cliente.dni && contactData.cliente.email;
 
     if (!hasRequiredFields) {
       alert('Por favor complete todos los campos requeridos');
@@ -205,25 +218,77 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
 
               <div className="form-section">
                 <h4>Cliente</h4>
+                <div className="input-grid two-cols">
+                  <div>
+                    <input
+                      type="text"
+                      className={`form-input ${errors.cliente.nombre ? 'error' : ''}`}
+                      placeholder="Ingresar nombre"
+                      value={contactData.cliente.nombre}
+                      onChange={(e) => {
+                        setContactData({
+                          ...contactData,
+                          cliente: { ...contactData.cliente, nombre: e.target.value }
+                        });
+                        validateField('nombre', e.target.value, 'cliente');
+                      }}
+                    />
+                    {errors.cliente.nombre && <div className="error-message">{errors.cliente.nombre}</div>}
+                  </div>
+                  <div>
+                    <input
+                      type="text"
+                      className={`form-input ${errors.cliente.apellido ? 'error' : ''}`}
+                      placeholder="Ingresar Apellido"
+                      value={contactData.cliente.apellido || ''}
+                      onChange={(e) => {
+                        setContactData({
+                          ...contactData,
+                          cliente: { ...contactData.cliente, apellido: e.target.value }
+                        });
+                        validateField('apellido', e.target.value, 'cliente');
+                      }}
+                    />
+                    {errors.cliente.apellido && <div className="error-message">{errors.cliente.apellido}</div>}
+                  </div>
+                  <div>
+                    <input
+                      type="text"
+                      className={`form-input ${errors.cliente.dni ? 'error' : ''}`}
+                      placeholder="Ingresar DNI"
+                      value={contactData.cliente.dni || ''}
+                      onChange={(e) => {
+                        setContactData({
+                          ...contactData,
+                          cliente: { ...contactData.cliente, dni: e.target.value }
+                        });
+                        validateField('dni', e.target.value, 'cliente');
+                      }}
+                    />
+                    {errors.cliente.dni && <div className="error-message">{errors.cliente.dni}</div>}
+                  </div>
+                  <div>
+                    <input
+                      type="tel"
+                      className={`form-input ${errors.cliente.telefono ? 'error' : ''}`}
+                      placeholder="Celular"
+                      value={contactData.cliente.telefono}
+                      onChange={(e) => {
+                        setContactData({
+                          ...contactData,
+                          cliente: { ...contactData.cliente, telefono: e.target.value }
+                        });
+                        validateField('telefono', e.target.value, 'cliente');
+                      }}
+                    />
+                    {errors.cliente.telefono && <div className="error-message">{errors.cliente.telefono}</div>}
+                  </div>
+                </div>
                 <div className="input-group">
-                  <input
-                    type="text"
-                    className={`form-input ${errors.cliente.nombre ? 'error' : ''}`}
-                    placeholder="Nombre del cliente"
-                    value={contactData.cliente.nombre}
-                    onChange={(e) => {
-                      setContactData({
-                        ...contactData,
-                        cliente: { ...contactData.cliente, nombre: e.target.value }
-                      });
-                      validateField('nombre', e.target.value, 'cliente');
-                    }}
-                  />
-                  {errors.cliente.nombre && <div className="error-message">{errors.cliente.nombre}</div>}
                   <input
                     type="email"
                     className={`form-input ${errors.cliente.email ? 'error' : ''}`}
-                    placeholder="Email del cliente"
+                    placeholder="Ingresar correo electrónico"
                     value={contactData.cliente.email}
                     onChange={(e) => {
                       setContactData({
@@ -234,20 +299,6 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
                     }}
                   />
                   {errors.cliente.email && <div className="error-message">{errors.cliente.email}</div>}
-                  <input
-                    type="tel"
-                    className={`form-input ${errors.cliente.telefono ? 'error' : ''}`}
-                    placeholder="Teléfono del cliente"
-                    value={contactData.cliente.telefono}
-                    onChange={(e) => {
-                      setContactData({
-                        ...contactData,
-                        cliente: { ...contactData.cliente, telefono: e.target.value }
-                      });
-                      validateField('telefono', e.target.value, 'cliente');
-                    }}
-                  />
-                  {errors.cliente.telefono && <div className="error-message">{errors.cliente.telefono}</div>}
                 </div>
               </div>
 
@@ -288,25 +339,79 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
 
               <div className="form-section">
                 <h4>Cliente</h4>
+                <div className="input-grid two-cols">
+                  <div>
+                    <input
+                      type="text"
+                      className={`form-input ${errors.cliente.nombre ? 'error' : ''}`}
+                      placeholder="Ingresar nombre"
+                      value={contactData.cliente.nombre}
+                      onChange={(e) => {
+                        setContactData({
+                          ...contactData,
+                          cliente: { ...contactData.cliente, nombre: e.target.value }
+                        });
+                        validateField('nombre', e.target.value, 'cliente');
+                      }}
+                    />
+                    {errors.cliente.nombre && <div className="error-message">{errors.cliente.nombre}</div>}
+                  </div>
+                  <div>
+                    <input
+                      type="text"
+                      className={`form-input ${errors.cliente.apellido ? 'error' : ''}`}
+                      placeholder="Ingresar Apellido"
+                      value={contactData.cliente.apellido || ''}
+                      onChange={(e) => {
+                        setContactData({
+                          ...contactData,
+                          cliente: { ...contactData.cliente, apellido: e.target.value }
+                        });
+                        validateField('apellido', e.target.value, 'cliente');
+                      }}
+                    />
+                    {errors.cliente.apellido && <div className="error-message">{errors.cliente.apellido}</div>}
+                  </div>
+                </div>
+                <div className="input-grid two-cols">
+                  <div>
+                    <input
+                      type="text"
+                      className={`form-input ${errors.cliente.dni ? 'error' : ''}`}
+                      placeholder="Ingresar DNI"
+                      value={contactData.cliente.dni || ''}
+                      onChange={(e) => {
+                        setContactData({
+                          ...contactData,
+                          cliente: { ...contactData.cliente, dni: e.target.value }
+                        });
+                        validateField('dni', e.target.value, 'cliente');
+                      }}
+                    />
+                    {errors.cliente.dni && <div className="error-message">{errors.cliente.dni}</div>}
+                  </div>
+                  <div>
+                    <input
+                      type="tel"
+                      className={`form-input ${errors.cliente.telefono ? 'error' : ''}`}
+                      placeholder="Celular"
+                      value={contactData.cliente.telefono}
+                      onChange={(e) => {
+                        setContactData({
+                          ...contactData,
+                          cliente: { ...contactData.cliente, telefono: e.target.value }
+                        });
+                        validateField('telefono', e.target.value, 'cliente');
+                      }}
+                    />
+                    {errors.cliente.telefono && <div className="error-message">{errors.cliente.telefono}</div>}
+                  </div>
+                </div>
                 <div className="input-group">
-                  <input
-                    type="text"
-                    className={`form-input ${errors.cliente.nombre ? 'error' : ''}`}
-                    placeholder="Nombre del cliente"
-                    value={contactData.cliente.nombre}
-                    onChange={(e) => {
-                      setContactData({
-                        ...contactData,
-                        cliente: { ...contactData.cliente, nombre: e.target.value }
-                      });
-                      validateField('nombre', e.target.value, 'cliente');
-                    }}
-                  />
-                  {errors.cliente.nombre && <div className="error-message">{errors.cliente.nombre}</div>}
                   <input
                     type="email"
                     className={`form-input ${errors.cliente.email ? 'error' : ''}`}
-                    placeholder="Email del cliente"
+                    placeholder="Ingresar correo electrónico"
                     value={contactData.cliente.email}
                     onChange={(e) => {
                       setContactData({

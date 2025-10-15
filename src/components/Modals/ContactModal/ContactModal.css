@@ -87,14 +87,22 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  margin-top: 1rem;
+}
+
+/* Grid para campos en dos columnas como el mockup */
+.contact-form .input-grid.two-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 16px;
 }
 
 .contact-form .form-input {
   padding: 12px 16px;
-  border: 2px solid #444;
-  border-radius: 8px;
+  border: 2px solid #bfbfbf;
+  border-radius: 16px;
   font-size: 0.875rem;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
   color: white;
   transition: all 0.3s;
 }

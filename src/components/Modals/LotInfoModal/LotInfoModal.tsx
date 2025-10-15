@@ -1064,10 +1064,12 @@ const LotInfoModal = ({
       const clientData = {
         values: [
           [
-            contactData.cliente.nombre,
-            contactData.cliente.email,
+            contactData.cliente.nombre || '',
+            contactData.cliente.apellido || '',
+            contactData.cliente.dni || '',
+            contactData.cliente.email || '',
             contactData.cliente.telefono || '',
-            lotData?.lot || 'N/A'
+            lotData?.lot || 'N/A',
           ]
         ]
       };
@@ -1433,10 +1435,8 @@ const LotInfoModal = ({
   };
 
   const handleContactSubmit = (contactData: any) => {
-    // Guardar información del cliente en la API si no está logueado
-    if (!userState) {
-      saveClientToAPI(contactData);
-    }
+    // Guardar información del cliente en la API siempre que complete el formulario
+    saveClientToAPI(contactData);
 
     switch (modalType) {
       case "print": {
