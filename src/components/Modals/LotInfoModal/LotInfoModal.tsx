@@ -1505,8 +1505,11 @@ const LotInfoModal = ({
 
         <div className="lot-modal-content">
           <div className="lot-identification">
-            <div className="lot-box">
-              <span id="modalLot">{lotData.lot}</span>
+            <div className="lot-id-left">
+              <div className="lot-box">
+                <span id="modalLot">{lotData.lot}</span>
+              </div>
+              <div className="lot-stage-badge">Etapa 1</div>
             </div>
             <div
               className="lot-status-badge"
