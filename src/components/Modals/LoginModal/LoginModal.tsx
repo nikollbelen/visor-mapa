@@ -1,17 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import "./LoginModal.css";
+import { useAuth } from "../../../contexts/AuthContext";
 
 interface LoginModalProps {
   isVisible: boolean;
   onClose: () => void;
-  onLogin: (user: SellerData) => void;
-}
-
-interface SellerData {
-  id: string;
-  nombre: string;
-  email: string;
-  password?: string;
 }
 
 interface LoginCredentials {
@@ -19,7 +12,8 @@ interface LoginCredentials {
   password: string;
 }
 
-const LoginModal = ({ isVisible, onClose, onLogin }: LoginModalProps) => {
+const LoginModal = ({ isVisible, onClose }: LoginModalProps) => {
+  const { login } = useAuth();
   const [credentials, setCredentials] = useState<LoginCredentials>({
     email: '',
     password: ''
@@ -32,28 +26,7 @@ const LoginModal = ({ isVisible, onClose, onLogin }: LoginModalProps) => {
   });
 
   const [isLoading, setIsLoading] = useState(false);
-  const [sellers, setSellers] = useState<SellerData[]>([]);
   const [showForgot, setShowForgot] = useState(false);
-
-  // Cargar sellers desde la API
-  useEffect(() => {
-    fetch('https://api.apico.dev/v1/gE2H1N/1vL47XFQKS6ajoKccemle7MYYDStFVawgnopVpfzz-UA/values/sellers')
-      .then(res => res.json())
-      .then((apiData) => {
-        // Transformar los datos de la API al formato esperado
-        const sellersData: SellerData[] = apiData.values.map((row: any) => ({
-          id: row[0],
-          nombre: row[1],
-          email: row[2],
-          password: row[3] // Agregamos la contraseña para validación
-        }));
-        setSellers(sellersData);
-      })
-      .catch((error) => {
-        console.error('Error cargando sellers:', error);
-        setSellers([]);
-      });
-  }, []);
 
   // Validar email
   const validateEmail = (email: string) => {
@@ -95,15 +68,10 @@ const LoginModal = ({ isVisible, onClose, onLogin }: LoginModalProps) => {
     setIsLoading(true);
     
     try {
-      // Buscar el usuario en la lista de sellers
-      const user = sellers.find(seller => 
-        seller.email.toLowerCase() === credentials.email.toLowerCase() &&
-        seller.password === credentials.password
-      );
+      const success = await login(credentials.email, credentials.password);
       
-      if (user) {
+      if (success) {
         // Login exitoso
-        onLogin(user);
         onClose();
         
         // Limpiar formulario

@@ -4,7 +4,7 @@ interface UserInfoModalProps {
   isVisible: boolean;
   user: {
     id: string;
-    nombre: string;
+    full_name: string;
     email: string;
   };
   onClose: () => void;
@@ -34,11 +34,10 @@ const UserInfoModal = ({ isVisible, user, onClose, onLogout }: UserInfoModalProp
             <div className="user-info-avatar">
               <i className="fas fa-user-circle"></i>
             </div>
-            
             <div className="user-info-details">
               <div className="user-info-field">
                 <label>Nombre:</label>
-                <span>{user.nombre}</span>
+                <span>{user.full_name}</span>
               </div>
               
               <div className="user-info-field">

@@ -95,7 +95,7 @@
         "lote": "15",
         "manzana": "E",
         "area": "116.28",
-        "precio": "27900"
+        "precio": "27000900"
       },
       "geometry": {
         "type": "Polygon",
@@ -368,8 +368,8 @@
         "estado": "disponible",
         "lote": "13",
         "manzana": "E",
-        "area": "110.00",
-        "precio": "26400"
+        "area": "110333.00",
+        "precio": "26222400"
       },
       "geometry": {
         "type": "Polygon",

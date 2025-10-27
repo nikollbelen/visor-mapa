@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import SplashScreen from "./Layout/SplashScreen/SplashScreen";
 import Instructions from "./Layout/Instructions/Instructions";
 import Sidebar from "./components/Sidebar/Sidebar";
@@ -12,12 +13,12 @@ import VideoOverlay from "./components/Overlays/VideoOverlay/VideoOverlay";
 import ImageOverlay from "./components/Overlays/ImageOverlay/ImageOverlay";
 import Photos360Overlay from "./components/Overlays/Photos360Overlay/Photos360Overlay";
 
-export default function App() {
+function AppContent() {
+  const { user } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
   const [showInstructions, setShowInstructions] = useState(true);
   const [selectedLote, setSelectedLote] = useState(null);
   const [showLotInfoModal, setShowLotInfoModal] = useState(false);
-  const [currentUser, setCurrentUser] = useState<{id: string; nombre: string; email: string} | null>(null);
   const [showPhotos360, setShowPhotos360] = useState(false);
   const [photos360Src, setPhotos360Src] = useState("");
   const [showAreasModal, setShowAreasModal] = useState(false);
@@ -30,47 +31,6 @@ export default function App() {
   const [entornoData, setEntornoData] = useState<any>(null);
   const [showVideoOverlay, setShowVideoOverlay] = useState(false);
 
-  // Sincronizar estado del usuario con localStorage
-  useEffect(() => {
-    const savedUser = localStorage.getItem('currentUser');
-    if (savedUser) {
-      try {
-        setCurrentUser(JSON.parse(savedUser));
-      } catch (error) {
-        console.error('Error al cargar usuario desde localStorage:', error);
-        localStorage.removeItem('currentUser');
-      }
-    }
-
-    // Escuchar cambios en localStorage para sincronizar entre componentes
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'currentUser') {
-        if (e.newValue) {
-          try {
-            setCurrentUser(JSON.parse(e.newValue));
-          } catch (error) {
-            console.error('Error al parsear usuario desde storage:', error);
-            setCurrentUser(null);
-          }
-        } else {
-          setCurrentUser(null);
-        }
-      }
-    };
-
-    // Escuchar eventos personalizados para cambios de usuario
-    const handleUserChange = (e: CustomEvent) => {
-      setCurrentUser(e.detail);
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('userStateChanged', handleUserChange as EventListener);
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('userStateChanged', handleUserChange as EventListener);
-    };
-  }, []);
 
   // Handlers para eventos de Cesium
   const handleLoteSelected = useCallback(
@@ -343,7 +303,7 @@ export default function App() {
         isVisible={showLotInfoModal}
         onClose={handleLotInfoModalClose}
         loteData={selectedLote}
-        currentUser={currentUser}
+        currentUser={user}
       />
 
       {showAreasModal && (
@@ -398,5 +358,13 @@ export default function App() {
         />
       )}
     </>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }

@@ -104,6 +104,72 @@ async function loadLotesData() {
     const response = await fetch("./data/lotes.geojson");
     const lotesData = await response.json();
 
+    // 1) Obtener propiedades desde API por POST y mapear por fid (manteniendo geometrías locales)
+    let fidToApiProps = new Map();
+    try {
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+      const apiUrl = `${apiBaseUrl}/lots/project/68f292744ba84cc0234c1bf4`;
+      
+      const apiResp = await fetch(apiUrl, { 
+        method: "GET",
+        headers: {
+          'Accept': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
+      
+      if (apiResp.ok) {
+        const apiJson = await apiResp.json();
+        const lots = (apiJson && apiJson.data && Array.isArray(apiJson.data.lots)) ? apiJson.data.lots : [];
+        lots.forEach((lot) => {
+          const fidKey = String(lot.fid);
+          fidToApiProps.set(fidKey, lot);
+        });
+      } else {
+        console.error("Error al obtener lots desde API:", apiResp.status);
+      }
+    } catch (apiErr) {
+      console.error("Fallo al llamar al endpoint de lots:", apiErr);
+    }
+
+    // 2) Fusionar propiedades del API dentro de cada feature por fid, manteniendo geometry local
+    if (lotesData && Array.isArray(lotesData.features)) {
+      lotesData.features.forEach((feature) => {
+        if (!feature || !feature.properties) return;
+        const localFid = feature.properties.fid;
+        if (localFid == null) return;
+        const api = fidToApiProps.get(String(localFid));
+        if (!api) return;
+
+        // Mapear campos del API -> esquema usado en la app
+        // API: { phase, block, lot, area, price, state, fid }
+        // Local: { manzana, lote, area, precio, estado }
+        const mapped = {
+          manzana: api.block ?? feature.properties.manzana,
+          lote: api.lot ?? feature.properties.lote,
+          area: api.area ?? feature.properties.area,
+          precio: api.price ?? feature.properties.precio,
+          estado: api.state ? String(api.state).toLowerCase() : feature.properties.estado,
+        };
+
+        // Escribir propiedades fusionadas sin tocar geometry
+        feature.properties.manzana = mapped.manzana;
+        feature.properties.lote = mapped.lote;
+        feature.properties.area = mapped.area;
+        feature.properties.precio = mapped.precio;
+        feature.properties.estado = mapped.estado;
+
+        // Opcional: conservar extras del API para usos futuros
+        feature.properties._api = {
+          id: api.id,
+          phase: api.phase,
+          project_id: api.project_id,
+          updated_at: api.updated_at,
+          is_active: api.is_active,
+        };
+      });
+    }
+
     // Extract all polygon positions for flyToView
     lotesPositions = extractLotesPositions(lotesData);
 

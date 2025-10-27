@@ -211,7 +211,7 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
                     color: '#10b981',
                     fontSize: '14px'
                   }}>
-                    <strong>{currentUser.nombre}</strong> · {currentUser.email}
+                    <strong>{currentUser.nombre}</strong>{currentUser.email}
                   </div>
                 </div>
               )}
@@ -332,7 +332,7 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
                     color: '#10b981',
                     fontSize: '14px'
                   }}>
-                    <strong>{currentUser.nombre}</strong> · {currentUser.email}
+                    <strong>{currentUser.nombre}</strong>{currentUser.email}
                   </div>
                 </div>
               )}

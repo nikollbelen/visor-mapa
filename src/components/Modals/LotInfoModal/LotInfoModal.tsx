@@ -7,7 +7,6 @@ import {
   isBefore,
   startOfDay,
 } from "date-fns";
-import jsPDF from "jspdf";
 import "./LotInfoModal.css";
 import ContactModal from "../ContactModal/ContactModal";
 
@@ -33,21 +32,43 @@ const LotInfoModal = ({
 
   // Cargar vendedores desde la API
   useEffect(() => {
-    fetch('https://api.apico.dev/v1/gE2H1N/1vL47XFQKS6ajoKccemle7MYYDStFVawgnopVpfzz-UA/values/sellers')
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+    const token = localStorage.getItem('auth_token');
+    
+    if (!token) {
+      console.warn('No hay token de autenticación para cargar vendedores');
+      return;
+    }
+    
+    fetch(`${apiBaseUrl}/users`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'ngrok-skip-browser-warning': 'true'
+      }
+    })
       .then(res => res.json())
       .then((apiData) => {
         // Transformar los datos de la API al formato esperado
-        const sellersData = apiData.values.map((row: any) => ({
-          id: row[0],
-          nombre: row[1],
-          email: row[2],
-          password: row[3],
-          whatsapp: row[4]
-        }));
+        let sellersData = [];
+        
+        if (apiData.data && Array.isArray(apiData.data)) {
+          // Formato de la nueva API - filtrar solo usuarios con rol de vendedor/agente
+          sellersData = apiData.data
+            .filter((user: any) => user.role === 'agent' || user.role === 'seller' || user.role === 'vendedor')
+            .map((user: any) => ({
+              id: user.id,
+              nombre: user.full_name || user.name,
+              email: user.email,
+              password: '', // No necesitamos la contraseña
+              whatsapp: user.phone || '',
+            }));
+        }
+        
         setSellers(sellersData);
+        console.log('Vendedores cargados:', sellersData);
       })
       .catch((error) => {
-        console.error('Error cargando sellers:', error);
+        console.error('Error cargando vendedores:', error);
         setSellers([]);
       });
   }, []);
@@ -127,6 +148,11 @@ const LotInfoModal = ({
         },
       }
     : defaultLotData;
+
+  // Constantes para la API de cotizaciones
+  const BASE_API = import.meta.env.VITE_API_BASE_URL;
+  const PROJECT_ID = '68f292744ba84cc0234c1bf4'; // ID del proyecto Mikonos
+  const LOT_ID = loteData?.id || '68f65a027449019f373b0955'; // ID del lote actual
 
   const handleClose = () => {
     setShowQuotation(false); // Reset to lot info when closing
@@ -1056,49 +1082,133 @@ const LotInfoModal = ({
     window.open(whatsappUrl, '_blank');
   };
 
-  // Función para guardar información del cliente en la API
-  const saveClientToAPI = async (contactData: any) => {
+
+  // Función para guardar cotización en la API
+  const saveQuotationToAPI = async (contactData: any) => {
     try {
+      console.log('Guardando cotización en la API...');
+      console.log('Datos del lote:', { loteData, lotData, LOT_ID });
       
-      // Preparar datos del cliente
-      const clientData = {
-        values: [
-          [
-            contactData.cliente.nombre || '',
-            contactData.cliente.apellido || '',
-            contactData.cliente.dni || '',
-            contactData.cliente.email || '',
-            contactData.cliente.telefono || '',
-            lotData?.lot || 'N/A',
-          ]
-        ]
+      // Generar el PDF usando la misma función que Imprimir
+      const printContent = generatePrintContent(contactData);
+      const pdfBlob = new Blob([printContent], { type: 'text/html' });
+      
+      // Obtener el agente actual (vendedor logueado)
+      const currentAgent = userState || sellers[0];
+      const agentId = currentAgent?.id || '68f5db6bd9c0deedd190e4ce'; // ID por defecto
+      
+      // Preparar los datos del formulario
+      const formData = new FormData();
+      
+      // Generar código único para la cotización
+      const quotationCode = `COT-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
+      
+      formData.append('code', quotationCode);
+      formData.append('client', contactData.cliente?.nombre || '');
+      formData.append('email', contactData.cliente?.email || '');
+      formData.append('phone', contactData.cliente?.telefono || '');
+      formData.append('identification_number', contactData.cliente?.dni || '');
+      formData.append('lot_id', LOT_ID);
+      // Asegurar que agreed_price sea un número válido
+      const agreedPrice = loteData?.precio || 445000;
+      const validAgreedPrice = typeof agreedPrice === 'number' ? agreedPrice : parseFloat(agreedPrice) || 445000;
+      
+      // Asegurar que discount sea un número válido
+      const validDiscount = typeof discountPercentage === 'number' ? discountPercentage : parseFloat(discountPercentage) || 0;
+      
+      formData.append('agreed_price', validAgreedPrice.toString());
+      formData.append('discount', validDiscount.toString());
+      formData.append('project_id', PROJECT_ID);
+      formData.append('agent_id', agentId);
+      formData.append('pdf_file', pdfBlob, `cotizacion_${lotData.lot}_${new Date().toISOString().split('T')[0]}.html`);
+
+      console.log('Datos de la cotización:', {
+        code: quotationCode,
+        client: contactData.cliente?.nombre,
+        email: contactData.cliente?.email,
+        phone: contactData.cliente?.telefono,
+        identification_number: contactData.cliente?.dni,
+        lot_id: LOT_ID,
+        agreed_price: loteData?.precio || 445000,
+        discount: discountPercentage,
+        project_id: PROJECT_ID,
+        agent_id: agentId
+      });
+
+      // Verificar que todos los campos requeridos estén presentes
+      const requiredFields = {
+        code: quotationCode,
+        client: contactData.cliente?.nombre || '',
+        email: contactData.cliente?.email || '',
+        phone: contactData.cliente?.telefono || '',
+        identification_number: contactData.cliente?.dni || '',
+        lot_id: LOT_ID,
+        agreed_price: (loteData?.precio || 445000).toString(),
+        discount: discountPercentage.toString(),
+        project_id: PROJECT_ID,
+        agent_id: agentId
       };
 
-      console.log('Guardando cliente en API:', clientData);
+      console.log('Campos requeridos verificados:', requiredFields);
+      
+      // Verificar tipos de datos
+      console.log('Tipos de datos:', {
+        code: typeof requiredFields.code,
+        client: typeof requiredFields.client,
+        email: typeof requiredFields.email,
+        phone: typeof requiredFields.phone,
+        identification_number: typeof requiredFields.identification_number,
+        lot_id: typeof requiredFields.lot_id,
+        agreed_price: typeof requiredFields.agreed_price,
+        discount: typeof requiredFields.discount,
+        project_id: typeof requiredFields.project_id,
+        agent_id: typeof requiredFields.agent_id
+      });
 
-      // Enviar datos a la API con parámetros requeridos
-      const apiUrl = new URL('https://api.apico.dev/v1/gE2H1N/1vL47XFQKS6ajoKccemle7MYYDStFVawgnopVpfzz-UA/values/clientes:append');
-      apiUrl.searchParams.append('valueInputOption', 'USER_ENTERED');
-      apiUrl.searchParams.append('insertDataOption', 'INSERT_ROWS');
-      apiUrl.searchParams.append('includeValuesInResponse', 'true');
-
-      console.log('URL de la API:', apiUrl.toString());
-
-      const response = await fetch(apiUrl.toString(), {
+      // Obtener token de autenticación
+      const token = localStorage.getItem('auth_token');
+      
+      if (!token) {
+        throw new Error('No hay token de autenticación. Por favor, inicie sesión nuevamente.');
+      }
+      
+      // Enviar a la API
+      const response = await fetch(`${BASE_API}/quotations`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'ngrok-skip-browser-warning': 'true'
         },
-        body: JSON.stringify(clientData)
+        body: formData
       });
 
       if (response.ok) {
-        console.log('Cliente guardado exitosamente en la API');
+        const result = await response.json();
+        console.log('Cotización guardada exitosamente:', result);
+        alert('Cotización guardada exitosamente en el sistema');
+        return result;
       } else {
-        console.error('Error al guardar cliente en la API:', response.statusText);
+        const errorData = await response.json();
+        console.error('Error al guardar cotización:', errorData);
+        console.error('Detalles del error:', errorData.detail);
+        
+        // Mostrar errores específicos de validación
+        let errorMessage = 'Error al guardar la cotización.';
+        if (errorData.detail && Array.isArray(errorData.detail)) {
+          errorMessage += '\n\nErrores de validación:\n' + errorData.detail.map((err: any) => 
+            `- ${err.loc ? err.loc.join('.') : 'Campo'}: ${err.msg || err.message || 'Error desconocido'}`
+          ).join('\n');
+        } else if (errorData.message) {
+          errorMessage += `\n\n${errorData.message}`;
+        }
+        
+        alert(errorMessage);
+        throw new Error(`Error ${response.status}: ${errorData.message || response.statusText}`);
       }
     } catch (error) {
-      console.error('Error al guardar cliente:', error);
+      console.error('Error al guardar cotización:', error);
+      alert('Error al guardar la cotización. Por favor, intente nuevamente.');
+      throw error;
     }
   };
 
@@ -1318,15 +1428,15 @@ const LotInfoModal = ({
                 <tr>
                   <td>${item.item}</td>
                   <td>${item.date}</td>
-                  <td>${item.percentage}%</td>
-                  <td>$${item.amount.toLocaleString()}</td>
+                  <td>${item.percentage.toFixed(2)}%</td>
+                  <td>$${item.amount.toFixed(2)}</td>
                 </tr>
               `).join('')}
               <tr class="total-row">
                 <td><strong>TOTAL</strong></td>
                 <td></td>
                 <td><strong>100%</strong></td>
-                <td><strong>$${schedule.reduce((sum, item) => sum + (item.amount || 0), 0).toLocaleString()}</strong></td>
+                <td><strong>$${schedule.reduce((sum, item) => sum + (item.amount || 0), 0).toFixed(2)}</strong></td>
               </tr>
             </tbody>
           </table>
@@ -1341,79 +1451,7 @@ const LotInfoModal = ({
     `;
   };
 
-  const generatePDF = (contactData: any) => {
-    const doc = new jsPDF();
-    
-    // Configuración del documento
-    doc.setFontSize(20);
-    doc.setTextColor(0, 0, 0);
-    doc.text('COTIZACIÓN DE LOTE', 105, 20, { align: 'center' });
-    
-    // Información del lote
-    doc.setFontSize(14);
-    doc.text(`Lote: ${lotData.lot}`, 20, 40);
-    doc.text(`Estado: ${lotData.status}`, 20, 50);
-    doc.text(`Precio: ${lotData.price}`, 20, 60);
-    doc.text(`Acción: Guardar PDF`, 20, 70);
-    
-    // Información de contacto
-    doc.text('DATOS DE CONTACTO', 20, 80);
-    doc.setFontSize(12);
-    
-    let yPosition = 95;
-    
-    // Solo mostrar información del vendedor si está logueado
-    if (userState) {
-      const vendedorNombre = contactData.vendedor?.nombre || '';
-      const vendedorEmail = contactData.vendedor?.email || '';
-      doc.text(`Vendedor: ${vendedorNombre}`, 20, yPosition);
-      doc.text(`Email vendedor: ${vendedorEmail}`, 20, yPosition + 10);
-      yPosition += 20;
-    }
-    
-    // Información del cliente
-    const clienteNombre = contactData.cliente?.nombre || '';
-    const clienteEmail = contactData.cliente?.email || '';
-    const clienteTelefono = contactData.cliente?.telefono || '';
-    doc.text(`Cliente: ${clienteNombre}`, 20, yPosition);
-    doc.text(`Email cliente: ${clienteEmail}`, 20, yPosition + 10);
-    if (clienteTelefono) {
-      doc.text(`Teléfono cliente: ${clienteTelefono}`, 20, yPosition + 20);
-    }
-    
-    // Cronograma de pagos
-    if (schedule.length > 0) {
-      const cronogramaY = userState ? 155 : 135; // Ajustar según si hay vendedor o no
-      doc.text('CRONOGRAMA DE PAGOS', 20, cronogramaY);
-      
-      let yPosition = cronogramaY + 15;
-      schedule.forEach((item) => {
-        if (yPosition > 280) {
-          doc.addPage();
-          yPosition = 20;
-        }
-        
-        doc.setFontSize(10);
-        doc.text(`${item.item}`, 20, yPosition);
-        doc.text(`${item.date}`, 80, yPosition);
-        doc.text(`${item.percentage}%`, 120, yPosition);
-        doc.text(`$${item.amount.toLocaleString()}`, 150, yPosition);
-        
-        yPosition += 10;
-      });
-    }
-    
-    // Pie de página
-    const pageCount = doc.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.text(`Página ${i} de ${pageCount}`, 105, 290, { align: 'center' });
-      doc.text(`Generado el: ${new Date().toLocaleDateString()}`, 105, 295, { align: 'center' });
-    }
-    
-    return doc;
-  };
+  // Función generatePDF eliminada - ahora todos usan generatePrintContent
 
   const openPrintDialog = (contactData: any) => {
     // Crear una ventana nueva con los datos de la cotización
@@ -1434,10 +1472,7 @@ const LotInfoModal = ({
     }
   };
 
-  const handleContactSubmit = (contactData: any) => {
-    // Guardar información del cliente en la API siempre que complete el formulario
-    saveClientToAPI(contactData);
-
+  const handleContactSubmit = async (contactData: any) => {
     switch (modalType) {
       case "print": {
         // Abrir diálogo de impresión con datos de la cotización
@@ -1446,25 +1481,63 @@ const LotInfoModal = ({
       }
         
       case "save": {
-        // Generar PDF y descargarlo
-        const doc = generatePDF(contactData);
-        const fileName = contactData.fileName || `Cronograma_${lotData.lot}_${new Date().toISOString().split('T')[0]}`;
-        doc.save(`${fileName}.pdf`);
-        //alert(`Cronograma guardado como PDF: ${fileName}.pdf`);
+        try {
+          // Guardar cotización en la API
+          await saveQuotationToAPI(contactData);
+          
+          // Generar PDF usando la misma función que Imprimir
+          const printContent = generatePrintContent(contactData);
+          const blob = new Blob([printContent], { type: 'text/html' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `Cronograma_${lotData.lot}_${new Date().toISOString().split('T')[0]}.html`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        } catch (error) {
+          console.error('Error al guardar cotización:', error);
+          // Aún así, permitir descarga local del PDF
+          const printContent = generatePrintContent(contactData);
+          const blob = new Blob([printContent], { type: 'text/html' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `Cronograma_${lotData.lot}_${new Date().toISOString().split('T')[0]}.html`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        }
         break;
       }
         
       case "email": {
-        // Generar datos del email
+        // Generar PDF usando la misma función que Imprimir
+        const printContent = generatePrintContent(contactData);
+        const blob = new Blob([printContent], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        
+        // Crear enlace de email con el PDF adjunto
         const emailData = {
           to: contactData.cliente.email,
           subject: `Cotización - ${lotData.lot}`,
           body: `Estimado/a ${contactData.cliente.nombre},\n\nAdjunto la cotización del lote ${lotData.lot}.${userState ? `\n\nSaludos,\n${contactData.vendedor.nombre}` : '\n\nSaludos'}`
         };
         
-        // Copiar al portapapeles
-        navigator.clipboard.writeText(JSON.stringify(emailData, null, 2));
-        alert("Datos del email copiados al portapapeles");
+        // Crear enlace de email
+        const emailUrl = `mailto:${emailData.to}?subject=${encodeURIComponent(emailData.subject)}&body=${encodeURIComponent(emailData.body)}`;
+        window.open(emailUrl);
+        
+        // También descargar el archivo localmente
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `Cotizacion_${lotData.lot}_${new Date().toISOString().split('T')[0]}.html`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
         break;
       }
     }

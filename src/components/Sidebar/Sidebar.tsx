@@ -1,29 +1,18 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import SidebarItem from './SidebarItem';
 import LoginModal from '../Modals/LoginModal/LoginModal';
 import UserInfoModal from '../Modals/UserInfoModal/UserInfoModal';
 import './Sidebar.css';
 
 const Sidebar = () => {
+  const { user, logout } = useAuth();
   const [activeItem, setActiveItem] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isUserInfoModalOpen, setIsUserInfoModalOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState<{id: string; nombre: string; email: string} | null>(null);
 
-  // Cargar usuario desde localStorage al iniciar
-  useEffect(() => {
-    const savedUser = localStorage.getItem('currentUser');
-    if (savedUser) {
-      try {
-        setCurrentUser(JSON.parse(savedUser));
-      } catch (error) {
-        console.error('Error al cargar usuario desde localStorage:', error);
-        localStorage.removeItem('currentUser');
-      }
-    }
-  }, []);
 
   // Detectar si es móvil o tablet
   useEffect(() => {
@@ -67,16 +56,8 @@ const Sidebar = () => {
   };
 
   const handleLogin = (user: {id: string; nombre: string; email: string}) => {
-    // Actualizar el estado del usuario logueado
-    setCurrentUser(user);
+    // El contexto de autenticación ya maneja el estado del usuario
     console.log('Usuario logueado:', user);
-    
-    // Guardar en localStorage para persistir la sesión
-    localStorage.setItem('currentUser', JSON.stringify(user));
-    
-    // Disparar evento personalizado para notificar cambios
-    const event = new CustomEvent('userStateChanged', { detail: user });
-    window.dispatchEvent(event);
   };
 
   const handleCloseLoginModal = () => {
@@ -84,12 +65,8 @@ const Sidebar = () => {
   };
 
   const handleLogout = () => {
-    setCurrentUser(null);
-    localStorage.removeItem('currentUser');
-    
-    // Disparar evento personalizado para notificar cambios
-    const event = new CustomEvent('userStateChanged', { detail: null });
-    window.dispatchEvent(event);
+    logout();
+    setIsUserInfoModalOpen(false);
   };
 
   const handleCloseUserInfoModal = () => {
@@ -99,7 +76,7 @@ const Sidebar = () => {
   const handleItemClick = (itemId: string) => {
     // Si es el botón de usuario
     if (itemId === 'usuario') {
-      if (currentUser) {
+      if (user) {
         // Si ya está logueado, mostrar modal de información del usuario
         setIsUserInfoModalOpen(true);
       } else {
@@ -206,7 +183,7 @@ const Sidebar = () => {
       id: 'usuario',
       icon: '/images/sidebar/icon_user.png',
       alt: 'Usuario',
-      text: currentUser ? currentUser.nombre : 'Invitado'
+      text: user ? user.full_name : 'Invitado'
     }
   ];
 
@@ -282,14 +259,13 @@ const Sidebar = () => {
       <LoginModal
         isVisible={isLoginModalOpen}
         onClose={handleCloseLoginModal}
-        onLogin={handleLogin}
       />
 
       {/* Modal de Información del Usuario */}
-      {currentUser && (
+      {user && (
         <UserInfoModal
           isVisible={isUserInfoModalOpen}
-          user={currentUser}
+          user={user}
           onClose={handleCloseUserInfoModal}
           onLogout={handleLogout}
         />

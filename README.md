@@ -1,6 +1,6 @@
-# 🏘️ Proyecto Inmobiliario 3D - Mikonos
+# 🏘️ Proyecto Inmobiliario 3D - Mikonos Residencial Playa
 
-Una aplicación web interactiva desarrollada con React, TypeScript y Cesium para la visualización 3D de un proyecto inmobiliario. La aplicación permite explorar lotes, áreas comunes, entorno y servicios de manera inmersiva.
+Una aplicación web interactiva desarrollada con React, TypeScript y Cesium para la visualización 3D de un proyecto inmobiliario. Permite explorar lotes, áreas comunes, entorno y servicios de manera inmersiva con un sistema completo de cotización y gestión de usuarios.
 
 ## 🚀 Características Principales
 
@@ -13,7 +13,6 @@ Una aplicación web interactiva desarrollada con React, TypeScript y Cesium para
 ### 🏠 Gestión de Lotes
 - **Catálogo de Lotes**: Visualización de todos los lotes disponibles
 - **Estados**: Disponible, Reservado, Vendido con colores distintivos
-- **Información Detallada**: Precio, área, dimensiones y ubicación
 - **Búsqueda y Filtros**: Por precio, área, estado y ordenamiento
 - **Sistema de Cotización**: Generación automática de cronogramas de pago
 
@@ -26,30 +25,42 @@ Una aplicación web interactiva desarrollada con React, TypeScript y Cesium para
 - **Categorías**: Restaurantes, Hoteles, Seguridad, Turismo, Playas
 - **Información Detallada**: Descripción y ubicación de cada servicio
 - **Rutas**: Cálculo de distancias y rutas de acceso
-- **Marcadores Interactivos**: Puntos de interés con información
 
 ### 📸 Experiencia Multimedia
 - **Fotos 360°**: Tours virtuales inmersivos con Kuula
 - **Videos**: Contenido audiovisual del proyecto
 - **Galería de Imágenes**: Visualización de áreas y servicios
 
+### 👥 Sistema de Usuarios
+- **Autenticación**: Sistema de login con validación
+- **Perfiles de Usuario**: Gestión de información personal
+- **Vendedores**: Base de datos de vendedores con IDs únicos
+- **Persistencia**: Almacenamiento local de sesiones
+
+### 💰 Sistema de Cotización Avanzado
+- **Modalidades de Pago**: Crédito Hipotecario, Contado, Crédito Directo
+- **Descuentos**: Aplicación de descuentos por monto o porcentaje
+- **Cronogramas Inteligentes**: Generación automática con fechas editables
+- **Validaciones**: Verificación de fechas y montos
+- **Exportación**: Generación de PDFs e impresión
+
 ## 🛠️ Tecnologías Utilizadas
 
 ### Frontend
-- **React 19.1.1**: Framework principal
-- **TypeScript**: Tipado estático
-- **Vite**: Herramienta de construcción
-- **CSS Modules**: Estilos modulares
+- **React 19.1.1**: Framework principal con hooks modernos
+- **TypeScript**: Tipado estático para mejor mantenimiento
+- **Vite 7.1.7**: Herramienta de construcción rápida
+- **CSS Tradicional**: Estilos globales por componente
 
 ### 3D y Visualización
 - **Cesium.js**: Motor 3D para visualización geográfica
-- **GeoJSON**: Datos geoespaciales
-- **OpenRouteService API**: Cálculo de rutas
+- **GeoJSON**: Datos geoespaciales estructurados
+- **OpenRouteService API**: Cálculo de rutas y distancias
 
 ### Herramientas de Desarrollo
-- **ESLint**: Linting de código
-- **TypeScript ESLint**: Linting específico para TypeScript
-- **date-fns**: Manipulación de fechas
+- **ESLint**: Linting de código con reglas estrictas
+- **date-fns 4.1.0**: Manipulación avanzada de fechas
+- **jsPDF 3.0.3**: Generación de documentos PDF
 
 ## 📁 Estructura del Proyecto
 
@@ -59,21 +70,27 @@ src/
 │   ├── BottomBar/       # Barra de controles inferiores
 │   ├── Modals/          # Ventanas modales
 │   │   ├── AreasModal/     # Modal de áreas comunes
+│   │   ├── ContactModal/    # Modal de contacto y datos
 │   │   ├── EntornoModal/   # Modal de entorno
-│   │   ├── LotInfoModal/   # Modal de información de lotes
-│   │   └── LotSearchModal/ # Modal de búsqueda de lotes
-│   ├── Overlays/        # Superposiciones
-│   │   ├── EntornoButtons/ # Botones de entorno
-│   │   ├── ImageOverlay/  # Superposición de imágenes
-│   │   ├── Photos360Overlay/ # Superposición 360°
-│   │   └── VideoOverlay/  # Superposición de video
-│   ├── Sidebar/         # Barra lateral
+│   │   ├── LoginModal/     # Modal de autenticación
+│   │   ├── LotInfoModal/   # Modal principal de lotes
+│   │   ├── LotSearchModal/ # Modal de búsqueda de lotes
+│   │   └── UserInfoModal/  # Modal de información de usuario
+│   ├── Overlays/        # Superposiciones multimedia
+│   ├── Sidebar/         # Barra lateral de navegación
 │   └── UI/              # Componentes de interfaz
 ├── Layout/              # Componentes de layout
-│   ├── Instructions/    # Instrucciones de uso
-│   └── SplashScreen/    # Pantalla de carga
-├── types/               # Definiciones de tipos
+├── cesium/              # Configuración de Cesium
 └── App.tsx              # Componente principal
+
+public/
+├── data/               # Datos geoespaciales y configuración
+│   ├── areas.geojson      # Áreas comunes del proyecto
+│   ├── entorno.geojson    # Servicios del entorno
+│   ├── fotos.geojson      # Ubicaciones de fotos 360°
+│   ├── lotes.geojson      # Información de lotes
+│   └── sellers.json       # Base de datos de vendedores
+└── images/             # Recursos multimedia
 ```
 
 ## 🚀 Instalación y Configuración
@@ -122,6 +139,7 @@ El proyecto utiliza archivos GeoJSON para almacenar información geoespacial:
 - **`areas.geojson`**: Áreas comunes del proyecto
 - **`entorno.geojson`**: Servicios y puntos de interés del entorno
 - **`fotos.geojson`**: Ubicaciones de fotos 360°
+- **`sellers.json`**: Base de datos de vendedores con IDs únicos
 
 ## 🎮 Funcionalidades de Navegación
 
@@ -138,86 +156,31 @@ El proyecto utiliza archivos GeoJSON para almacenar información geoespacial:
 - **Filtros**: Búsqueda por criterios específicos
 - **Cotización**: Generación de cronogramas de pago
 
-## 💰 Sistema de Cotización
+## 💰 Sistema de Cotización Avanzado
 
 ### Modalidades de Pago
-- **Crédito Hipotecario**: Financiamiento tradicional
-- **Contado**: Pago único
-- **Crédito Directo**: Financiamiento directo
+- **Crédito Hipotecario**: Financiamiento tradicional con separación, inicial y cuotas
+- **Contado**: Pago único con opciones de separación e inicial
+- **Crédito Directo**: Financiamiento directo con cuotas personalizables
 
-### Características
-- **Descuentos**: Aplicación de descuentos por monto o porcentaje
-- **Cronogramas**: Generación automática de fechas de pago
-- **Validaciones**: Verificación de fechas y montos
-- **Exportación**: Generación de reportes de cotización
+### Características Avanzadas
+- **Descuentos Inteligentes**: Aplicación automática por monto o porcentaje
+- **Cronogramas Editables**: Fechas personalizables con validación
+- **Cuotas Equivalentes**: Distribución automática de pagos
+- **Sincronización**: Datos de vendedor y cliente integrados
+- **Validaciones**: Verificación de fechas (no anteriores a hoy)
+- **Exportación**: Generación de PDFs e impresión con datos completos
 
 ## 🎨 Interfaz de Usuario
 
 ### Diseño Responsivo
 - **Desktop**: Experiencia completa con controles avanzados
-- **Móvil**: Interfaz adaptada para dispositivos táctiles
-- **Instrucciones**: Guías de uso para diferentes dispositivos
+- **Tablet**: Interfaz adaptada con controles optimizados
+- **Móvil**: Controles táctiles optimizados para navegación
 
 ### Componentes Principales
-- **Sidebar**: Navegación principal
-- **BottomBar**: Controles de cámara
-- **Modales**: Ventanas de información
+- **Sidebar**: Navegación principal con categorías
+- **BottomBar**: Controles de cámara y vista
+- **Modales**: Ventanas de información especializadas
 - **Overlays**: Superposiciones multimedia
 
-## 🔧 Scripts Disponibles
-
-```bash
-npm run dev      # Servidor de desarrollo
-npm run build    # Construcción para producción
-npm run preview  # Vista previa de la construcción
-npm run lint     # Verificación de código
-```
-
-## 🌐 APIs Externas
-
-### Cesium Ion
-- **Token**: Requerido para el acceso a tiles y servicios
-- **Configuración**: Se pasa automáticamente desde variables de entorno
-
-### OpenRouteService
-- **API Key**: Para cálculo de rutas y distancias
-- **Funcionalidad**: Navegación desde el proyecto a puntos de interés
-
-## 📱 Compatibilidad
-
-### Navegadores Soportados
-- Chrome 90+
-- Firefox 88+
-- Safari 14+
-- Edge 90+
-
-### Dispositivos
-- **Desktop**: Experiencia completa
-- **Tablet**: Interfaz adaptada
-- **Móvil**: Controles táctiles optimizados
-
-## 🚀 Despliegue
-
-### Build de Producción
-```bash
-npm run build
-```
-
-Los archivos generados se encuentran en la carpeta `dist/` y están listos para ser desplegados en cualquier servidor web estático.
-
-### Variables de Entorno Requeridas
-- `VITE_CESIUM_TOKEN`: Token de Cesium Ion
-- `VITE_OPEN_ROUTE_SERVICE_KEY`: API Key de OpenRouteService
-
-## 📝 Notas de Desarrollo
-
-### Arquitectura
-- **React**: Componentes funcionales con hooks
-- **TypeScript**: Tipado estático para mejor mantenimiento
-- **Cesium**: Integración mediante eventos personalizados
-- **Estado**: Gestión de estado local con useState
-
-### Optimizaciones
-- **Lazy Loading**: Carga diferida de componentes
-- **Memoización**: Optimización de re-renderizados
-- **Event Listeners**: Gestión eficiente de eventos
