@@ -7,6 +7,7 @@ import {
   isBefore,
   startOfDay,
 } from "date-fns";
+import jsPDF from 'jspdf';
 import "./LotInfoModal.css";
 import ContactModal from "../ContactModal/ContactModal";
 
@@ -14,7 +15,7 @@ interface LotInfoModalProps {
   isVisible?: boolean;
   onClose?: () => void;
   loteData?: any;
-  currentUser?: {id: string; nombre: string; email: string} | null;
+  currentUser?: {id: string; full_name?: string; email: string} | null;
 }
 
 const LotInfoModal = ({
@@ -121,7 +122,7 @@ const LotInfoModal = ({
   const defaultLotData = {
     lot: "Lote sin identificar",
     status: "Disponible",
-    price: "$ 0",
+    price: "$0.00",
     area: "0.00 m²",
     boundaries: {
       left: "0.00ML",
@@ -137,8 +138,13 @@ const LotInfoModal = ({
         lot: loteData.direccion || "Lote sin identificar",
         status: loteData.estado || "Disponible",
         price: loteData.precio
-          ? `$ ${loteData.precio.toLocaleString()}`
-          : "$ 0",
+          ? (() => {
+              const formatted = loteData.precio.toFixed(2);
+              const parts = formatted.split('.');
+              parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+              return `$${parts.join('.')}`;
+            })()
+          : "$0.00",
         area: loteData.area || "0.00 m²",
         boundaries: {
           left: loteData.boundaries?.left || "0.00ML",
@@ -1083,15 +1089,299 @@ const LotInfoModal = ({
   };
 
 
+  // Funciones auxiliares para formatear datos
+  const formatPrice = (price: string | number): string => {
+    // Si es un string, intentar parsear
+    const numPrice = typeof price === 'string' 
+      ? parseFloat(price.replace(/[^0-9.-]/g, ''))
+      : price;
+    
+    if (isNaN(numPrice)) return '$0.00';
+    
+    // Formatear con comas para miles y punto decimal
+    const formatted = numPrice.toFixed(2);
+    const parts = formatted.split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return `$${parts.join('.')}`;
+  };
+
+  const formatPhone = (phone: string, countryCode: string = '+51'): string => {
+    if (!phone) return '';
+    // Remover caracteres no numéricos (el phone ya viene con el formato desde el ContactModal)
+    // Si viene con espacios, mantenerlo, si no, formatearlo
+    if (phone.includes(' ')) {
+      // Ya está formateado con espacios
+      return `${countryCode} ${phone}`;
+    }
+    // Formatear si es necesario
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length >= 9) {
+      const number = digits.slice(0, 9);
+      const formatted = `${number.slice(0, 3)} ${number.slice(3, 6)} ${number.slice(6)}`;
+      return `${countryCode} ${formatted}`;
+    }
+    return phone;
+  };
+
+  const formatClientName = (cliente: any): string => {
+    const nombre = cliente?.nombre || '';
+    const apellido = cliente?.apellido || '';
+    return `${nombre} ${apellido}`.trim();
+  };
+
+  const formatAmount = (amount: number): string => {
+    const formatted = amount.toFixed(2);
+    const parts = formatted.split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return `$${parts.join('.')}`;
+  };
+
+  // Función para generar PDF mejorado que se parezca al HTML de impresión
+  const generatePDFWithText = (contactData: any): Blob => {
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    let yPosition = 20;
+
+    // Configuración de colores (similar al HTML)
+    const colors = {
+      primary: '#2d2d2d',
+      secondary: '#444',
+      text: '#333',
+      lightGray: '#666',
+      background: '#ffffff',
+      border: '#ddd',
+      totalBg: '#e8f5e8'
+    };
+
+    // Título principal (como el header del HTML)
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(18);
+    pdf.setTextColor(colors.primary);
+    pdf.text('COTIZACIÓN DE LOTE', pageWidth / 2, yPosition, { align: 'center' });
+    yPosition += 5;
+
+    // Línea separadora (como border-bottom del header)
+    pdf.setDrawColor(colors.primary);
+    pdf.setLineWidth(0.3);
+    pdf.line(20, yPosition, pageWidth - 20, yPosition);
+    yPosition += 20;
+
+    // Información del lote (como info-section)
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(16);
+    pdf.setTextColor(colors.secondary);
+    pdf.text('Información del Lote', 20, yPosition);
+    yPosition += 5;
+
+    // Línea separadora de sección
+    pdf.setDrawColor(colors.border);
+    pdf.setLineWidth(0.3);
+    pdf.line(20, yPosition, pageWidth - 20, yPosition);
+    yPosition += 12;
+
+    // Grid de información (como info-grid)
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(12);
+    pdf.setTextColor(colors.text);
+
+    const lotInfo = [
+      { label: 'Lote:', value: lotData.lot },
+      { label: 'Estado:', value: lotData.status },
+      { label: 'Precio:', value: formatPrice(lotData.price) },
+      { label: 'Fecha de Generación:', value: new Date().toLocaleDateString() }
+    ];
+
+    // Crear grid de 2 columnas
+    lotInfo.forEach((info, index) => {
+      const xPos = index % 2 === 0 ? 20 : pageWidth / 2 + 10;
+      const yPos = yPosition + (Math.floor(index / 2) * 15);
+
+      // Fondo gris (como info-item)
+      pdf.setFillColor(colors.background);
+      pdf.rect(xPos - 2, yPos - 8, pageWidth / 2 - 15, 12, 'F');
+
+      // Texto
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(colors.lightGray);
+      pdf.text(info.label, xPos, yPos - 2);
+      
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(colors.text);
+      pdf.text(info.value, xPos, yPos + 3);
+    });
+
+    yPosition += 35;
+
+    // Datos de contacto
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(16);
+    pdf.setTextColor(colors.secondary);
+    pdf.text('Datos de Contacto', 20, yPosition);
+    yPosition += 5;
+
+    // Línea separadora
+    pdf.setDrawColor(colors.border);
+    pdf.setLineWidth(0.3);
+    pdf.line(20, yPosition, pageWidth - 20, yPosition);
+    yPosition += 6;
+
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(12);
+    pdf.setTextColor(colors.text);
+
+    if (userState) {
+      // Calcular alturas para vendedor y cliente
+      const vendedorHeight = contactData.vendedor?.email ? 20 : 12;
+      const clienteHeight = contactData.cliente?.telefono ? 27 : contactData.cliente?.email ? 20 : 12;
+      const maxHeight = Math.max(vendedorHeight, clienteHeight);
+
+      // VENDEDOR - Columna izquierda
+      pdf.setFillColor(colors.background);
+      pdf.rect(18, yPosition - 4, (pageWidth / 2) - 12, vendedorHeight, 'F');
+      
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(colors.lightGray);
+      pdf.text('Vendedor:', 20, yPosition);
+      
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(colors.text);
+      pdf.text(contactData.vendedor?.full_name || '', 20, yPosition + 8);
+      pdf.text(contactData.vendedor?.email || '', 20, yPosition + 13);
+
+      // CLIENTE - Columna derecha
+      const clienteX = (pageWidth / 2) + 10;
+      pdf.setFillColor(colors.background);
+      pdf.rect(clienteX - 2, yPosition - 4, (pageWidth / 2) - 12, clienteHeight, 'F');
+      
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(colors.lightGray);
+      pdf.text('Cliente:', clienteX, yPosition);
+      
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(colors.text);
+      pdf.text(formatClientName(contactData.cliente), clienteX, yPosition + 8);
+      pdf.text(contactData.cliente?.email || '', clienteX, yPosition + 13);
+      if (contactData.cliente?.telefono) {
+        const code = contactData.cliente?.codigoPais || '+51';
+        pdf.text(formatPhone(contactData.cliente.telefono, code), clienteX, yPosition + 18);
+      }
+
+      yPosition += maxHeight + 10;
+    }
+
+    // Cronograma de pagos (como schedule-table)
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(16);
+    pdf.setTextColor(colors.secondary);
+    pdf.text('Cronograma de Pagos', 20, yPosition);
+    yPosition += 5;
+
+    // Línea separadora
+    pdf.setDrawColor(colors.border);
+    pdf.setLineWidth(0.3);
+    pdf.line(20, yPosition, pageWidth - 20, yPosition);
+    yPosition += 12;
+
+    // Encabezados de la tabla (como schedule-table th)
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(11);
+    pdf.setTextColor(colors.text);
+    
+    // Fondo blanco para encabezados
+    pdf.setFillColor('#ffffff');
+    pdf.rect(20, yPosition - 6, pageWidth - 40, 8, 'F');
+    
+    // Borde de tabla para encabezados
+    pdf.setDrawColor(colors.border);
+    pdf.setLineWidth(0.5);
+    pdf.rect(20, yPosition - 6, pageWidth - 40, 8);
+    
+    pdf.text('Cuota', 22, yPosition);
+    pdf.text('Fecha de Vencimiento', 80, yPosition);
+    pdf.text('Porcentaje', 120, yPosition);
+    pdf.text('Monto', 160, yPosition);
+    yPosition += 6;
+
+    // Filas de datos (como schedule-table td)
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(10);
+    
+    let totalAmount = 0;
+    schedule.forEach((item) => {
+      // Verificar si necesitamos nueva página
+      if (yPosition > pageHeight - 30) {
+        pdf.addPage();
+        yPosition = 20;
+      }
+
+      // Bordes de celda
+      pdf.setDrawColor(colors.border);
+      pdf.setLineWidth(0.5);
+      pdf.rect(20, yPosition - 4, pageWidth - 40, 6);
+
+      pdf.setTextColor(colors.text);
+      pdf.text(item.item, 22, yPosition);
+      pdf.text(item.date, 80, yPosition);
+      pdf.text(`${item.percentage.toFixed(2)}%`, 120, yPosition);
+      pdf.text(formatAmount(item.amount), 160, yPosition);
+      yPosition += 6;
+      totalAmount += item.amount || 0;
+    });
+
+    // Fila total (como total-row)
+    yPosition += 0;
+    pdf.setFillColor(colors.totalBg);
+    pdf.rect(20, yPosition - 4, pageWidth - 40, 8, 'F');
+    
+    pdf.setDrawColor(colors.border);
+    pdf.setLineWidth(0.5);
+    pdf.rect(20, yPosition - 4, pageWidth - 40, 8);
+
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(colors.text);
+    pdf.text('TOTAL', 22, yPosition + 2);
+    pdf.text('100%', 120, yPosition + 2);
+    pdf.text(formatAmount(totalAmount), 160, yPosition + 2);
+
+    // Pie de página (como footer)
+    yPosition = pageHeight - 20;
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(10);
+    pdf.setTextColor(colors.lightGray);
+    pdf.text(`Documento generado el ${new Date().toLocaleString()}`, pageWidth / 2, yPosition, { align: 'center' });
+    pdf.text('Sistema de Cotizaciones - Mikonos', pageWidth / 2, yPosition + 5, { align: 'center' });
+
+    return pdf.output('blob');
+  };
+
+  // Función unificada para generar documento (PDF o HTML) con formato estándar
+  const generateDocument = async (contactData: any, format: 'pdf' | 'html' = 'pdf'): Promise<Blob> => {
+    try {
+      if (format === 'html') {
+        // Para HTML, usar el contenido directo (como antes)
+        const printContent = generatePrintContent(contactData);
+        const htmlBlob = new Blob([printContent], { type: 'text/html' });
+        return htmlBlob;
+      }
+
+      // Para PDF, usar jsPDF directamente con texto
+      return generatePDFWithText(contactData);
+
+    } catch (error) {
+      console.error('Error generando documento:', error);
+      throw error;
+    }
+  };
+
   // Función para guardar cotización en la API
   const saveQuotationToAPI = async (contactData: any) => {
     try {
       console.log('Guardando cotización en la API...');
       console.log('Datos del lote:', { loteData, lotData, LOT_ID });
       
-      // Generar el PDF usando la misma función que Imprimir
-      const printContent = generatePrintContent(contactData);
-      const pdfBlob = new Blob([printContent], { type: 'text/html' });
+      // Generar el PDF real usando el formato estándar
+      const pdfBlob = await generateDocument(contactData, 'pdf');
       
       // Obtener el agente actual (vendedor logueado)
       const currentAgent = userState || sellers[0];
@@ -1120,7 +1410,7 @@ const LotInfoModal = ({
       formData.append('discount', validDiscount.toString());
       formData.append('project_id', PROJECT_ID);
       formData.append('agent_id', agentId);
-      formData.append('pdf_file', pdfBlob, `cotizacion_${lotData.lot}_${new Date().toISOString().split('T')[0]}.html`);
+      formData.append('pdf_file', pdfBlob, `cotizacion_${lotData.lot}_${new Date().toISOString().split('T')[0]}.pdf`);
 
       console.log('Datos de la cotización:', {
         code: quotationCode,
@@ -1384,7 +1674,7 @@ const LotInfoModal = ({
             </div>
             <div class="info-item">
               <div class="info-label">Precio:</div>
-              <div>${lotData.price}</div>
+              <div>${formatPrice(lotData.price)}</div>
             </div>
             <div class="info-item">
               <div class="info-label">Fecha de Generación:</div>
@@ -1399,15 +1689,15 @@ const LotInfoModal = ({
             ${userState ? `
             <div class="info-item">
               <div class="info-label">Vendedor:</div>
-              <div>${contactData.vendedor?.nombre || ''}</div>
+              <div>${contactData.vendedor?.full_name || ''}</div>
               <div style="color: #666; font-size: 14px;">${contactData.vendedor?.email || ''}</div>
             </div>
             ` : ''}
             <div class="info-item">
               <div class="info-label">Cliente:</div>
-              <div>${contactData.cliente?.nombre || ''}</div>
-              <div style="color: #666; font-size: 14px;">${contactData.cliente?.email || ''}</div>
-              ${contactData.cliente?.telefono ? `<div style="color: #666; font-size: 14px;">${contactData.cliente.telefono}</div>` : ''}
+              <div>${formatClientName(contactData.cliente)}</div>
+              <div style="color: #666; font-size: 14px;">Email: ${contactData.cliente?.email || ''}</div>
+              ${contactData.cliente?.telefono ? `<div style="color: #666; font-size: 14px;">Celular: ${formatPhone(contactData.cliente.telefono, contactData.cliente?.codigoPais || '+51')}</div>` : ''}
             </div>
           </div>
         </div>
@@ -1417,8 +1707,8 @@ const LotInfoModal = ({
           <table class="schedule-table">
             <thead>
               <tr>
-                <th>Concepto</th>
-                <th>Fecha</th>
+                <th>Cuota</th>
+                <th>Fecha de Vencimiento</th>
                 <th>Porcentaje</th>
                 <th>Monto</th>
               </tr>
@@ -1429,14 +1719,14 @@ const LotInfoModal = ({
                   <td>${item.item}</td>
                   <td>${item.date}</td>
                   <td>${item.percentage.toFixed(2)}%</td>
-                  <td>$${item.amount.toFixed(2)}</td>
+                  <td>${formatAmount(item.amount)}</td>
                 </tr>
               `).join('')}
               <tr class="total-row">
                 <td><strong>TOTAL</strong></td>
                 <td></td>
                 <td><strong>100%</strong></td>
-                <td><strong>$${schedule.reduce((sum, item) => sum + (item.amount || 0), 0).toFixed(2)}</strong></td>
+                <td><strong>${formatAmount(schedule.reduce((sum, item) => sum + (item.amount || 0), 0))}</strong></td>
               </tr>
             </tbody>
           </table>
@@ -1472,9 +1762,34 @@ const LotInfoModal = ({
     }
   };
 
+  // Función auxiliar para obtener el nombre del archivo
+  const getFileName = (contactData: any, defaultPrefix: string, extension: string) => {
+    if (contactData.fileName && contactData.fileName.trim()) {
+      // Limpiar el nombre del archivo para remover caracteres no válidos y añadir extensión
+      const cleanedName = contactData.fileName.trim().replace(/[<>:"/\\|?*]/g, '_');
+      return `${cleanedName}.${extension}`;
+    }
+    // Si no hay nombre personalizado, usar el nombre por defecto
+    return `${defaultPrefix}_${lotData.lot}_${new Date().toISOString().split('T')[0]}.${extension}`;
+  };
+
   const handleContactSubmit = async (contactData: any) => {
+    // Determinar si el usuario está logueado (agente comercial)
+    const isLoggedIn = !!userState;
+    
     switch (modalType) {
       case "print": {
+        // Si está logueado, guardar en BD antes de imprimir
+        if (isLoggedIn) {
+          try {
+            await saveQuotationToAPI(contactData);
+            console.log('Cotización guardada en BD antes de imprimir');
+          } catch (error) {
+            console.error('Error al guardar cotización en BD:', error);
+            // Continuar con la impresión aunque falle el guardado
+          }
+        }
+        
         // Abrir diálogo de impresión con datos de la cotización
         openPrintDialog(contactData);
         break;
@@ -1482,62 +1797,115 @@ const LotInfoModal = ({
         
       case "save": {
         try {
-          // Guardar cotización en la API
-          await saveQuotationToAPI(contactData);
+          // Si está logueado, guardar en BD
+          if (isLoggedIn) {
+            await saveQuotationToAPI(contactData);
+            console.log('Cotización guardada en BD');
+          }
           
-          // Generar PDF usando la misma función que Imprimir
-          const printContent = generatePrintContent(contactData);
-          const blob = new Blob([printContent], { type: 'text/html' });
-          const url = URL.createObjectURL(blob);
+          // Generar y descargar el PDF
+          const pdfBlob = await generateDocument(contactData, 'pdf');
+          const url = URL.createObjectURL(pdfBlob);
           const link = document.createElement('a');
           link.href = url;
-          link.download = `Cronograma_${lotData.lot}_${new Date().toISOString().split('T')[0]}.html`;
+          link.download = getFileName(contactData, 'Cronograma', 'pdf');
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
           URL.revokeObjectURL(url);
         } catch (error) {
-          console.error('Error al guardar cotización:', error);
+          console.error('Error al procesar cotización:', error);
           // Aún así, permitir descarga local del PDF
-          const printContent = generatePrintContent(contactData);
-          const blob = new Blob([printContent], { type: 'text/html' });
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `Cronograma_${lotData.lot}_${new Date().toISOString().split('T')[0]}.html`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
+          try {
+            const pdfBlob = await generateDocument(contactData, 'pdf');
+            const url = URL.createObjectURL(pdfBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = getFileName(contactData, 'Cronograma', 'pdf');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+          } catch (pdfError) {
+            console.error('Error generando PDF local:', pdfError);
+            // Fallback a HTML si falla la generación de PDF
+            const printContent = generatePrintContent(contactData);
+            const blob = new Blob([printContent], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = getFileName(contactData, 'Cronograma', 'html');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+          }
         }
         break;
       }
         
       case "email": {
-        // Generar PDF usando la misma función que Imprimir
-        const printContent = generatePrintContent(contactData);
-        const blob = new Blob([printContent], { type: 'text/html' });
-        const url = URL.createObjectURL(blob);
-        
-        // Crear enlace de email con el PDF adjunto
-        const emailData = {
-          to: contactData.cliente.email,
-          subject: `Cotización - ${lotData.lot}`,
-          body: `Estimado/a ${contactData.cliente.nombre},\n\nAdjunto la cotización del lote ${lotData.lot}.${userState ? `\n\nSaludos,\n${contactData.vendedor.nombre}` : '\n\nSaludos'}`
-        };
-        
-        // Crear enlace de email
-        const emailUrl = `mailto:${emailData.to}?subject=${encodeURIComponent(emailData.subject)}&body=${encodeURIComponent(emailData.body)}`;
-        window.open(emailUrl);
-        
-        // También descargar el archivo localmente
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `Cotizacion_${lotData.lot}_${new Date().toISOString().split('T')[0]}.html`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        try {
+          // Si está logueado, guardar en BD antes de enviar
+          if (isLoggedIn) {
+            try {
+              await saveQuotationToAPI(contactData);
+              console.log('Cotización guardada en BD antes de enviar');
+            } catch (error) {
+              console.error('Error al guardar cotización en BD:', error);
+              // Continuar con el envío aunque falle el guardado
+            }
+          }
+          
+          // Generar el PDF
+          const pdfBlob = await generateDocument(contactData, 'pdf');
+          const url = URL.createObjectURL(pdfBlob);
+          
+          // Crear enlace de email con el PDF adjunto
+          const emailData = {
+            to: contactData.cliente.email,
+            subject: `Cotización - ${lotData.lot}`,
+            body: `Estimado/a ${contactData.cliente.nombre},\n\nAdjunto la cotización del lote ${lotData.lot}.${userState ? `\n\nSaludos,\n${contactData.vendedor?.full_name || ''}` : '\n\nSaludos'}`
+          };
+          
+          // Crear enlace de email
+          const emailUrl = `mailto:${emailData.to}?subject=${encodeURIComponent(emailData.subject)}&body=${encodeURIComponent(emailData.body)}`;
+          window.open(emailUrl);
+          
+          // También descargar el archivo PDF localmente
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = getFileName(contactData, 'Cotizacion', 'pdf');
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        } catch (error) {
+          console.error('Error generando PDF para email:', error);
+          // Fallback a HTML si falla la generación de PDF
+          const htmlBlob = await generateDocument(contactData, 'html');
+          const url = URL.createObjectURL(htmlBlob);
+          
+          // Crear enlace de email con el HTML adjunto
+          const emailData = {
+            to: contactData.cliente.email,
+            subject: `Cotización - ${lotData.lot}`,
+            body: `Estimado/a ${contactData.cliente.nombre},\n\nAdjunto la cotización del lote ${lotData.lot}.${userState ? `\n\nSaludos,\n${contactData.vendedor?.full_name || ''}` : '\n\nSaludos'}`
+          };
+          
+          // Crear enlace de email
+          const emailUrl = `mailto:${emailData.to}?subject=${encodeURIComponent(emailData.subject)}&body=${encodeURIComponent(emailData.body)}`;
+          window.open(emailUrl);
+          
+          // También descargar el archivo HTML localmente
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = getFileName(contactData, 'Cotizacion', 'html');
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        }
         break;
       }
     }
@@ -1579,10 +1947,10 @@ const LotInfoModal = ({
         <div className="lot-modal-content">
           <div className="lot-identification">
             <div className="lot-id-left">
+              <div className="lot-stage-badge">Etapa 1</div>
               <div className="lot-box">
                 <span id="modalLot">{lotData.lot}</span>
               </div>
-              <div className="lot-stage-badge">Etapa 1</div>
             </div>
             <div
               className="lot-status-badge"

@@ -93,7 +93,7 @@ let minArea = 0;
 // Load custom map image
 try {
   viewer.imageryLayers.addImageryProvider(
-    await window.Cesium.IonImageryProvider.fromAssetId(3810048)
+    await window.Cesium.IonImageryProvider.fromAssetId(3971478)
   );
 } catch (error) {
   console.error("❌ Error loading map image:", error);

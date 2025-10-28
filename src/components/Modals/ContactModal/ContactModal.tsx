@@ -6,13 +6,13 @@ interface ContactModalProps {
   type: "print" | "save" | "email";
   onClose: () => void;
   onSubmit: (data: ContactData) => void;
-  currentUser?: {id: string; nombre: string; email: string} | null;
+  currentUser?: {id: string; full_name?: string; email: string} | null;
 }
 
 interface ContactData {
   vendedorId?: string;
-  vendedor?: { id?: string; nombre: string; email: string };
-  cliente: { nombre: string; apellido?: string; dni?: string; email: string; telefono?: string };
+  vendedor?: { id?: string; full_name?: string; email: string };
+  cliente: { nombre: string; apellido?: string; tipoDocumento?: string; dni?: string; email: string; codigoPais?: string; telefono?: string };
   fileName?: string; // Para el tipo "save"
 }
 
@@ -27,10 +27,10 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
     vendedorId: currentUser?.id || '',
     vendedor: currentUser ? { 
       id: currentUser.id, 
-      nombre: currentUser.nombre, 
+      full_name: currentUser.full_name,
       email: currentUser.email 
-    } : { id: '', nombre: '', email: '' },
-    cliente: { nombre: '', email: '', telefono: '' },
+    } : { id: '', email: '' },
+    cliente: { nombre: '', email: '', tipoDocumento: 'DNI', codigoPais: '+51', telefono: '' },
     fileName: ''
   });
 
@@ -49,7 +49,7 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
         vendedorId: currentUser.id,
         vendedor: { 
           id: currentUser.id, 
-          nombre: currentUser.nombre, 
+          full_name: currentUser.full_name,
           email: currentUser.email 
         }
       }));
@@ -57,7 +57,7 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
       setContactData(prev => ({
         ...prev,
         vendedorId: '',
-        vendedor: { id: '', nombre: '', email: '' }
+        vendedor: { id: '', email: '' }
       }));
     }
   }, [currentUser]);
@@ -74,20 +74,102 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
     return nameRegex.test(name);
   };
 
-  // Validar teléfono
-  const validatePhone = (phone: string) => {
-    const phoneRegex = /^[0-9+\-()\s]{6,20}$/;
-    return phoneRegex.test(phone);
+  // Validar teléfono según el país seleccionado
+  const validatePhone = (phone: string, countryCode: string = '+51') => {
+    const country = codigosPais.find(p => p.code === countryCode) || codigosPais[0];
+    const requiredDigits = country.digits;
+    const numbersOnly = phone.replace(/\D/g, '');
+    return numbersOnly.length === requiredDigits;
   };
 
-  // Validar DNI (solo dígitos, 8-12 aprox.)
+  // Validar DNI (solo dígitos, 8 dígitos exactos)
   const validateDni = (dni: string) => {
-    const dniRegex = /^\d{8,12}$/;
+    const dniRegex = /^\d{8}$/;
     return dniRegex.test(dni);
   };
 
+  // Tipos de documento disponibles
+  const tiposDocumento = ['DNI', 'CE', 'Pasaporte', 'Carné Extranjería'];
+
+  // Códigos de país con sus limitantes específicas
+  const codigosPais = [
+    { code: '+51', country: 'Perú', flag: '🇵🇪', digits: 9, format: 'XXX XXX XXX' },
+    { code: '+52', country: 'México', flag: '🇲🇽', digits: 10, format: '(XXX) XXX XXXX' },
+    { code: '+54', country: 'Argentina', flag: '🇦🇷', digits: 10, format: 'XXX XXXX XXXX' },
+    { code: '+55', country: 'Brasil', flag: '🇧🇷', digits: 11, format: '(XX) XXXXX-XXXX' },
+    { code: '+56', country: 'Chile', flag: '🇨🇱', digits: 9, format: 'X XXXX XXXX' },
+    { code: '+57', country: 'Colombia', flag: '🇨🇴', digits: 10, format: '(XXX) XXX XXXX' },
+    { code: '+34', country: 'España', flag: '🇪🇸', digits: 9, format: 'XXX XXX XXX' },
+    { code: '+1', country: 'USA/Can', flag: '🇺🇸', digits: 10, format: '(XXX) XXX-XXXX' },
+  ];
+
+  // Formatear teléfono con espaciado automático según el país
+  const formatPhoneInput = (value: string, countryCode: string = '+51'): string => {
+    // Encontrar las configuraciones del país
+    const country = codigosPais.find(p => p.code === countryCode) || codigosPais[0];
+    const maxDigits = country.digits;
+    
+    // Remover todo excepto números
+    const numbers = value.replace(/\D/g, '');
+    // Limitar según el país
+    const limited = numbers.slice(0, maxDigits);
+    
+    // Formatear según el patrón del país
+    const format = country.format;
+    
+    if (format === '(XXX) XXX XXXX' || format === '(XXX) XXX-XXXX') {
+      // México, Colombia, USA/Canadá
+      return limited.replace(/(\d{1,3})(\d{3})(\d{4})(\d*)/, (_, g1, g2, g3) => 
+        `${g1} ${g2} ${g3}`.trim()
+      );
+    } else if (format === 'XXX XXXX XXXX') {
+      // Argentina
+      return limited.replace(/(\d{3})(\d{4})(\d{4})(\d*)/, (_, g1, g2, g3) => 
+        `${g1} ${g2} ${g3}`.trim()
+      );
+    } else if (format === '(XX) XXXXX-XXXX') {
+      // Brasil
+      return limited.replace(/(\d{2})(\d{5})(\d{4})(\d*)/, (_, g1, g2, g3) => 
+        `${g1} ${g2}-${g3}`.trim()
+      );
+    } else if (format === 'X XXXX XXXX') {
+      // Chile
+      return limited.replace(/(\d{1})(\d{4})(\d{4})(\d*)/, (_, g1, g2, g3) => 
+        `${g1} ${g2} ${g3}`.trim()
+      );
+    } else {
+      // Perú, España - formato por defecto XXX XXX XXX
+      return limited.replace(/(\d{1,3})(\d{3})(\d{3})(\d*)/, (_, g1, g2, g3, g4) => {
+        if (g4) return `${g1} ${g2} ${g3} ${g4}`;
+        if (g3 && g3.length === 3) return `${g1} ${g2} ${g3}`;
+        if (g2 && g2.length === 3) return `${g1} ${g2}`;
+        return g1;
+      });
+    }
+  };
+
+  // Limitar solo a números (sin espacios)
+  const handleNumericInput = (value: string): string => {
+    return value.replace(/\D/g, '');
+  };
+
+  // Limitar solo a letras (con espacios permitidos)
+  const handleLetterInput = (value: string): string => {
+    // Remover números y caracteres especiales excepto espacios
+    return value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
+  };
+
+  // Auto-generar nombre de archivo
+  const generateFileName = (): string => {
+    const clienteNombre = contactData.cliente.nombre || '';
+    const clienteApellido = contactData.cliente.apellido || '';
+    const fecha = new Date().toISOString().split('T')[0];
+    const cleanName = `${clienteNombre}_${clienteApellido}_${fecha}`.trim().replace(/\s+/g, '_');
+    return cleanName || 'Documento_' + fecha;
+  };
+
   // Validar campo específico
-  const validateField = (field: string, value: string, type: 'vendedorId' | 'cliente') => {
+  const validateField = (field: string, value: string, type: 'vendedorId' | 'cliente', countryCode?: string) => {
     const newErrors: typeof errors = JSON.parse(JSON.stringify(errors));
     if (type === 'vendedorId') {
       newErrors.vendedorId = value ? '' : 'Ingrese el ID del vendedor';
@@ -102,15 +184,18 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
           : '';
       } else if (field === 'dni') {
         newErrors.cliente.dni = value && !validateDni(value)
-          ? 'Ingrese un DNI válido'
+          ? 'Ingrese 8 dígitos'
           : '';
       } else if (field === 'email') {
         newErrors.cliente.email = value && !validateEmail(value)
           ? 'Ingrese un correo electrónico válido'
           : '';
       } else if (field === 'telefono') {
-        newErrors.cliente.telefono = value && !validatePhone(value)
-          ? 'Ingrese un teléfono válido'
+        const code = countryCode || contactData.cliente.codigoPais || '+51';
+        const country = codigosPais.find(p => p.code === code);
+        const requiredDigits = country?.digits || 9;
+        newErrors.cliente.telefono = value && !validatePhone(value, code)
+          ? `Ingrese ${requiredDigits} dígitos`
           : '';
       }
     }
@@ -144,6 +229,22 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
       }));
     }
   }, [contactData.vendedorId, sellers]);
+
+  // Auto-generar nombre de archivo cuando cambian nombre o apellido
+  useEffect(() => {
+    if (type === 'save' && (contactData.cliente.nombre || contactData.cliente.apellido)) {
+      const autoFileName = generateFileName();
+      // Solo actualizar si no hay un nombre personalizado o es el nombre generado automáticamente
+      const currentFileName = contactData.fileName || '';
+      if (!currentFileName || currentFileName === '' || currentFileName.match(/^Documento_/)) {
+        setContactData(prev => ({
+          ...prev,
+          fileName: autoFileName
+        }));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contactData.cliente.nombre, contactData.cliente.apellido, type]);
 
   const handleSubmit = () => {
     // Validar todos los campos (solo cliente, nunca vendedor)
@@ -211,7 +312,7 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
                     color: '#10b981',
                     fontSize: '14px'
                   }}>
-                    <strong>{currentUser.nombre}</strong>{currentUser.email}
+                    <strong>{currentUser.full_name}</strong>  {currentUser.email}
                   </div>
                 </div>
               )}
@@ -220,82 +321,133 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
                 <h4>Cliente</h4>
                 <div className="input-grid two-cols">
                   <div>
+                    <label className="input-label">Nombre*</label>
                     <input
                       type="text"
                       className={`form-input ${errors.cliente.nombre ? 'error' : ''}`}
-                      placeholder="Ingresar nombre"
+                      placeholder="Solo letras"
                       value={contactData.cliente.nombre}
                       onChange={(e) => {
+                        const cleaned = handleLetterInput(e.target.value);
                         setContactData({
                           ...contactData,
-                          cliente: { ...contactData.cliente, nombre: e.target.value }
+                          cliente: { ...contactData.cliente, nombre: cleaned }
                         });
-                        validateField('nombre', e.target.value, 'cliente');
+                        validateField('nombre', cleaned, 'cliente');
                       }}
                     />
                     {errors.cliente.nombre && <div className="error-message">{errors.cliente.nombre}</div>}
                   </div>
                   <div>
+                    <label className="input-label">Apellido*</label>
                     <input
                       type="text"
                       className={`form-input ${errors.cliente.apellido ? 'error' : ''}`}
-                      placeholder="Ingresar Apellido"
+                      placeholder="Solo letras"
                       value={contactData.cliente.apellido || ''}
                       onChange={(e) => {
+                        const cleaned = handleLetterInput(e.target.value);
                         setContactData({
                           ...contactData,
-                          cliente: { ...contactData.cliente, apellido: e.target.value }
+                          cliente: { ...contactData.cliente, apellido: cleaned }
                         });
-                        validateField('apellido', e.target.value, 'cliente');
+                        validateField('apellido', cleaned, 'cliente');
                       }}
                     />
                     {errors.cliente.apellido && <div className="error-message">{errors.cliente.apellido}</div>}
                   </div>
                   <div>
-                    <input
-                      type="text"
-                      className={`form-input ${errors.cliente.dni ? 'error' : ''}`}
-                      placeholder="Ingresar DNI"
-                      value={contactData.cliente.dni || ''}
+                    <label className="input-label">Tipo de Documento*</label>
+                    <select
+                      className="form-input"
+                      value={contactData.cliente.tipoDocumento || 'DNI'}
                       onChange={(e) => {
                         setContactData({
                           ...contactData,
-                          cliente: { ...contactData.cliente, dni: e.target.value }
+                          cliente: { ...contactData.cliente, tipoDocumento: e.target.value }
                         });
-                        validateField('dni', e.target.value, 'cliente');
+                      }}
+                    >
+                      {tiposDocumento.map(tipo => (
+                        <option key={tipo} value={tipo}>{tipo}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="input-label">N° de Documento*</label>
+                    <input
+                      type="text"
+                      className={`form-input ${errors.cliente.dni ? 'error' : ''}`}
+                      placeholder="8 dígitos"
+                      value={contactData.cliente.dni || ''}
+                      maxLength={8}
+                      onChange={(e) => {
+                        const cleaned = handleNumericInput(e.target.value).slice(0, 8);
+                        setContactData({
+                          ...contactData,
+                          cliente: { ...contactData.cliente, dni: cleaned }
+                        });
+                        validateField('dni', cleaned, 'cliente');
                       }}
                     />
                     {errors.cliente.dni && <div className="error-message">{errors.cliente.dni}</div>}
                   </div>
                   <div>
-                    <input
-                      type="tel"
-                      className={`form-input ${errors.cliente.telefono ? 'error' : ''}`}
-                      placeholder="Celular"
-                      value={contactData.cliente.telefono}
+                    <label className="input-label">Código de País*</label>
+                    <select
+                      className="form-input"
+                      value={contactData.cliente.codigoPais || '+51'}
                       onChange={(e) => {
                         setContactData({
                           ...contactData,
-                          cliente: { ...contactData.cliente, telefono: e.target.value }
+                          cliente: { 
+                            ...contactData.cliente, 
+                            codigoPais: e.target.value,
+                            telefono: '' // Limpiar teléfono al cambiar país
+                          }
                         });
-                        validateField('telefono', e.target.value, 'cliente');
+                      }}
+                    >
+                      {codigosPais.map(({ code, country, flag, digits }) => (
+                        <option key={code} value={code}>{flag} {code} {country} ({digits} dígitos)</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="input-label">Celular*</label>
+                    <input
+                      type="tel"
+                      className={`form-input ${errors.cliente.telefono ? 'error' : ''}`}
+                      placeholder={`${codigosPais.find(p => p.code === contactData.cliente.codigoPais)?.digits || 9} dígitos`}
+                      value={contactData.cliente.telefono || ''}
+                      maxLength={20}
+                      onChange={(e) => {
+                        const cleaned = handleNumericInput(e.target.value);
+                        const countryCode = contactData.cliente.codigoPais || '+51';
+                        const formatted = formatPhoneInput(cleaned, countryCode);
+                        setContactData({
+                          ...contactData,
+                          cliente: { ...contactData.cliente, telefono: formatted }
+                        });
+                        validateField('telefono', formatted, 'cliente', countryCode);
                       }}
                     />
                     {errors.cliente.telefono && <div className="error-message">{errors.cliente.telefono}</div>}
                   </div>
                 </div>
                 <div className="input-group">
+                  <label className="input-label">Email*</label>
                   <input
                     type="email"
                     className={`form-input ${errors.cliente.email ? 'error' : ''}`}
-                    placeholder="Ingresar correo electrónico"
+                    placeholder="correo@ejemplo.com"
                     value={contactData.cliente.email}
                     onChange={(e) => {
                       setContactData({
                         ...contactData,
-                        cliente: { ...contactData.cliente, email: e.target.value }
+                        cliente: { ...contactData.cliente, email: e.target.value.replace(/\s/g, '') }
                       });
-                      validateField('email', e.target.value, 'cliente');
+                      validateField('email', e.target.value.replace(/\s/g, ''), 'cliente');
                     }}
                   />
                   {errors.cliente.email && <div className="error-message">{errors.cliente.email}</div>}
@@ -308,13 +460,16 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
                   <input
                     type="text"
                     className="form-input"
-                    placeholder="Ej: Cronograma_Lote_123"
-                    value={contactData.fileName || ''}
+                    placeholder="Se genera automáticamente"
+                    value={contactData.fileName || generateFileName()}
                     onChange={(e) => setContactData({
                       ...contactData,
                       fileName: e.target.value
                     })}
                   />
+                  <p style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                    Puede editar el nombre antes de guardar
+                  </p>
                 </div>
               )}
             </div>
@@ -332,7 +487,7 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
                     color: '#10b981',
                     fontSize: '14px'
                   }}>
-                    <strong>{currentUser.nombre}</strong>{currentUser.email}
+                    <strong>{currentUser.full_name}</strong>{currentUser.email}
                   </div>
                 </div>
               )}
@@ -341,84 +496,133 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
                 <h4>Cliente</h4>
                 <div className="input-grid two-cols">
                   <div>
+                    <label className="input-label">Nombre*</label>
                     <input
                       type="text"
                       className={`form-input ${errors.cliente.nombre ? 'error' : ''}`}
-                      placeholder="Ingresar nombre"
+                      placeholder="Solo letras"
                       value={contactData.cliente.nombre}
                       onChange={(e) => {
+                        const cleaned = handleLetterInput(e.target.value);
                         setContactData({
                           ...contactData,
-                          cliente: { ...contactData.cliente, nombre: e.target.value }
+                          cliente: { ...contactData.cliente, nombre: cleaned }
                         });
-                        validateField('nombre', e.target.value, 'cliente');
+                        validateField('nombre', cleaned, 'cliente');
                       }}
                     />
                     {errors.cliente.nombre && <div className="error-message">{errors.cliente.nombre}</div>}
                   </div>
                   <div>
+                    <label className="input-label">Apellido*</label>
                     <input
                       type="text"
                       className={`form-input ${errors.cliente.apellido ? 'error' : ''}`}
-                      placeholder="Ingresar Apellido"
+                      placeholder="Solo letras"
                       value={contactData.cliente.apellido || ''}
                       onChange={(e) => {
+                        const cleaned = handleLetterInput(e.target.value);
                         setContactData({
                           ...contactData,
-                          cliente: { ...contactData.cliente, apellido: e.target.value }
+                          cliente: { ...contactData.cliente, apellido: cleaned }
                         });
-                        validateField('apellido', e.target.value, 'cliente');
+                        validateField('apellido', cleaned, 'cliente');
                       }}
                     />
                     {errors.cliente.apellido && <div className="error-message">{errors.cliente.apellido}</div>}
                   </div>
-                </div>
-                <div className="input-grid two-cols">
                   <div>
-                    <input
-                      type="text"
-                      className={`form-input ${errors.cliente.dni ? 'error' : ''}`}
-                      placeholder="Ingresar DNI"
-                      value={contactData.cliente.dni || ''}
+                    <label className="input-label">Tipo de Documento*</label>
+                    <select
+                      className="form-input"
+                      value={contactData.cliente.tipoDocumento || 'DNI'}
                       onChange={(e) => {
                         setContactData({
                           ...contactData,
-                          cliente: { ...contactData.cliente, dni: e.target.value }
+                          cliente: { ...contactData.cliente, tipoDocumento: e.target.value }
                         });
-                        validateField('dni', e.target.value, 'cliente');
+                      }}
+                    >
+                      {tiposDocumento.map(tipo => (
+                        <option key={tipo} value={tipo}>{tipo}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="input-label">N° de Documento*</label>
+                    <input
+                      type="text"
+                      className={`form-input ${errors.cliente.dni ? 'error' : ''}`}
+                      placeholder="8 dígitos"
+                      value={contactData.cliente.dni || ''}
+                      maxLength={8}
+                      onChange={(e) => {
+                        const cleaned = handleNumericInput(e.target.value).slice(0, 8);
+                        setContactData({
+                          ...contactData,
+                          cliente: { ...contactData.cliente, dni: cleaned }
+                        });
+                        validateField('dni', cleaned, 'cliente');
                       }}
                     />
                     {errors.cliente.dni && <div className="error-message">{errors.cliente.dni}</div>}
                   </div>
                   <div>
-                    <input
-                      type="tel"
-                      className={`form-input ${errors.cliente.telefono ? 'error' : ''}`}
-                      placeholder="Celular"
-                      value={contactData.cliente.telefono}
+                    <label className="input-label">Código de País*</label>
+                    <select
+                      className="form-input"
+                      value={contactData.cliente.codigoPais || '+51'}
                       onChange={(e) => {
                         setContactData({
                           ...contactData,
-                          cliente: { ...contactData.cliente, telefono: e.target.value }
+                          cliente: { 
+                            ...contactData.cliente, 
+                            codigoPais: e.target.value,
+                            telefono: '' // Limpiar teléfono al cambiar país
+                          }
                         });
-                        validateField('telefono', e.target.value, 'cliente');
+                      }}
+                    >
+                      {codigosPais.map(({ code, country, flag, digits }) => (
+                        <option key={code} value={code}>{flag} {code} {country} ({digits} dígitos)</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="input-label">Celular*</label>
+                    <input
+                      type="tel"
+                      className={`form-input ${errors.cliente.telefono ? 'error' : ''}`}
+                      placeholder={`${codigosPais.find(p => p.code === contactData.cliente.codigoPais)?.digits || 9} dígitos`}
+                      value={contactData.cliente.telefono || ''}
+                      maxLength={20}
+                      onChange={(e) => {
+                        const cleaned = handleNumericInput(e.target.value);
+                        const countryCode = contactData.cliente.codigoPais || '+51';
+                        const formatted = formatPhoneInput(cleaned, countryCode);
+                        setContactData({
+                          ...contactData,
+                          cliente: { ...contactData.cliente, telefono: formatted }
+                        });
+                        validateField('telefono', formatted, 'cliente', countryCode);
                       }}
                     />
                     {errors.cliente.telefono && <div className="error-message">{errors.cliente.telefono}</div>}
                   </div>
                 </div>
                 <div className="input-group">
+                  <label className="input-label">Email*</label>
                   <input
                     type="email"
                     className={`form-input ${errors.cliente.email ? 'error' : ''}`}
-                    placeholder="Ingresar correo electrónico"
+                    placeholder="correo@ejemplo.com"
                     value={contactData.cliente.email}
                     onChange={(e) => {
                       setContactData({
                         ...contactData,
-                        cliente: { ...contactData.cliente, email: e.target.value }
+                        cliente: { ...contactData.cliente, email: e.target.value.replace(/\s/g, '') }
                       });
-                      validateField('email', e.target.value, 'cliente');
+                      validateField('email', e.target.value.replace(/\s/g, ''), 'cliente');
                     }}
                   />
                   {errors.cliente.email && <div className="error-message">{errors.cliente.email}</div>}
