@@ -55,11 +55,6 @@ const Sidebar = () => {
     setIsMenuOpen(!isMenuOpen);
   };
 
-  const handleLogin = (user: {id: string; nombre: string; email: string}) => {
-    // El contexto de autenticación ya maneja el estado del usuario
-    console.log('Usuario logueado:', user);
-  };
-
   const handleCloseLoginModal = () => {
     setIsLoginModalOpen(false);
   };
