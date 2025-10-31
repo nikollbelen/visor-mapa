@@ -16,7 +16,6 @@ const viewer = new Cesium.Viewer("cesiumContainer", {
   requestRenderMode: true,
   pickTranslucentDepth: true,
 });
-
 // Global variables for lots
 let lotesPositions = [];
 let processedLots = [];
@@ -108,7 +107,7 @@ async function loadLotesData() {
     let fidToApiProps = new Map();
     try {
       const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
-      const apiUrl = `${apiBaseUrl}/lots/project/68f292744ba84cc0234c1bf4`;
+      const apiUrl = `${apiBaseUrl}/lots/project/6904f3e87d0fa4e90586cdf9`;
       
       const apiResp = await fetch(apiUrl, { 
         method: "GET",
