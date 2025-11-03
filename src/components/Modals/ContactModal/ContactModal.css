@@ -138,6 +138,30 @@
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
 }
 
+/* Estilos para opciones de select con form-input */
+.contact-form select.form-input {
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+.contact-form select.form-input option {
+  background: #1a1a1a;
+  color: white;
+  padding: 10px;
+}
+
+.contact-form select.form-input option:checked {
+  background: #10b981;
+  color: white;
+}
+
+.contact-form select.form-input option:hover {
+  background: #2d2d2d;
+}
+
 .error-message {
   color: #ef4444;
   font-size: 0.75rem;
