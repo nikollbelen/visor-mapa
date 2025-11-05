@@ -17,17 +17,6 @@ const viewer = new Cesium.Viewer("cesiumContainer", {
   pickTranslucentDepth: true,
 });
 
-// Habilitar sombras en la escena
-viewer.shadows = true;
-viewer.scene.globe.shadows = window.Cesium.ShadowMode.RECEIVE_ONLY;
-
-// Configurar el shadow map para mejor calidad de sombras
-if (viewer.scene.shadowMap) {
-  viewer.scene.shadowMap.enabled = true;
-  viewer.scene.shadowMap.size = 2048; // Tamaño del shadow map (mayor = mejor calidad)
-  viewer.scene.shadowMap.softShadows = true; // Sombras suaves
-}
-
 // Global variables for lots
 let lotesPositions = [];
 let processedLots = [];
@@ -884,52 +873,13 @@ function addTreeModelAtCenter() {
         minimumPixelSize: 64,
         maximumScale: 50,
         scale: modelScale,
-        shadows: window.Cesium.ShadowMode.ENABLED, // El modelo emite sombras
         heightReference: window.Cesium.HeightReference.RELATIVE_TO_GROUND, // Altura relativa al terreno (permite upOffset)
-        // Configurar iluminación del modelo para mejor visibilidad en áreas oscuras
-        imageBasedLightingFactor: new window.Cesium.Cartesian2(1.8, 1.8), // Aumentar iluminación basada en imagen (IBL)
-        // Esto hace que el modelo refleje más luz ambiente del cielo
       },
     });
-
-    // Agregar luces indirectas alrededor del modelo para iluminar las áreas oscuras
-    addAmbientLightsAroundModel(finalPosition, modelScale);
 
     if (viewer) viewer.scene.requestRender();
   } catch (error) {
     console.error("Error agregando el modelo de árbol:", error);
-  }
-}
-
-// Función para agregar luces indirectas alrededor del modelo
-function addAmbientLightsAroundModel(modelPosition, modelScale) {
-  try {
-    // Aumentar la iluminación ambiente global de la escena
-    if (viewer.scene.globe) {
-      // Aumentar la luminosidad base del globo para mejor iluminación indirecta
-      viewer.scene.globe.baseColor = new window.Cesium.Color(0.4, 0.4, 0.4, 1.0);
-    }
-    
-    // Configurar iluminación ambiente mejorada para modelos
-    if (viewer.scene.skyAtmosphere) {
-      viewer.scene.skyAtmosphere.hueShift = 0.0;
-      viewer.scene.skyAtmosphere.saturationShift = 0.0;
-      viewer.scene.skyAtmosphere.brightnessShift = 0.3; // Aumentar brillo ambiente (0.0 a 1.0)
-      viewer.scene.skyAtmosphere.rayleighCoefficient = 0.0001; // Reducir dispersión para más luz
-    }
-    
-    // Configurar iluminación ambiente global para modelos 3D
-    // Aumentar la iluminación ambiente en la escena
-    if (viewer.scene.lightSource) {
-      // Ajustar la fuente de luz principal para incluir más luz ambiente
-      viewer.scene.lightSource.directionalLightColor = new window.Cesium.Color(1.0, 1.0, 1.0, 1.0);
-    }
-    
-    // Habilitar iluminación basada en imagen (IBL) para mejor iluminación indirecta
-    viewer.scene.imageBasedLightingFactor = new window.Cesium.Cartesian2(1.5, 1.5); // Aumentar IBL
-    
-  } catch (error) {
-    console.error("Error agregando luces indirectas:", error);
   }
 }
 
