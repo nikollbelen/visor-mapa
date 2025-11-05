@@ -66,7 +66,6 @@ const LotInfoModal = ({
         }
         
         setSellers(sellersData);
-        console.log('Vendedores cargados:', sellersData);
       })
       .catch((error) => {
         console.error('Error cargando vendedores:', error);
@@ -81,7 +80,6 @@ const LotInfoModal = ({
 
   // Debug: Log user state changes
   useEffect(() => {
-    console.log("LotInfoModal - userState changed:", userState);
   }, [userState]);
 
   // Payment schedule states
@@ -130,6 +128,8 @@ const LotInfoModal = ({
       front: "0.00ML",
       back: "0.00ML",
     },
+    phase: "1",
+    id: undefined,
   };
 
   // Usar datos del lote si están disponibles, sino usar datos por defecto
@@ -152,13 +152,15 @@ const LotInfoModal = ({
           front: loteData.boundaries?.front || "0.00ML",
           back: loteData.boundaries?.back || "0.00ML",
         },
+        phase: loteData.phase || "1",
+        id: loteData.id,
       }
     : defaultLotData;
 
   // Constantes para la API de cotizaciones
   const BASE_API = import.meta.env.VITE_API_BASE_URL;
-  const PROJECT_ID = '68f292744ba84cc0234c1bf4'; // ID del proyecto Mikonos
-  const LOT_ID = loteData?.id || '68f65a027449019f373b0955'; // ID del lote actual
+  const PROJECT_ID = import.meta.env.VITE_PROJECT_ID || '6904f3e87d0fa4e90586cdf9'; // ID del proyecto Mikonos
+  const LOT_ID = loteData?.id || '68f65a027449019f373b0955'; // ID del lote actual desde la API
 
   const handleClose = () => {
     setShowQuotation(false); // Reset to lot info when closing
@@ -357,7 +359,6 @@ const LotInfoModal = ({
   };
 
   const handlePaymentMethodChange = (method: string) => {
-    console.log("Cambiando modalidad a:", method);
     setPaymentMethod(method);
 
     // Reset all payment fields when changing method
@@ -376,7 +377,6 @@ const LotInfoModal = ({
 
   // Debug: Log when paymentMethod changes
   useEffect(() => {
-    console.log("paymentMethod cambió a:", paymentMethod);
   }, [paymentMethod]);
 
   // Función auxiliar para calcular montos de manera precisa
@@ -487,25 +487,14 @@ const LotInfoModal = ({
   };
 
   const calculateSchedule = () => {
-    console.log("=== INICIANDO calculateSchedule ===");
-    console.log("Schedule ANTES de calculateSchedule:", schedule);
-    console.log("Schedule ANTES tiene", schedule.length, "elementos");
-    console.log(
-      "Schedule ANTES elementos:",
-      schedule.map((item) => item.item)
-    );
     const finalPrice = (loteData?.precio || 445000) - discountAmount;
 
     const newSchedule: any[] = [];
 
     if (paymentMethod === "credito_hipotecario") {
-      // Modalidad: Crédito Hipotecario
-      console.log("Calculando cronograma para credito_hipotecario");
-      console.log("paymentMethod actual:", paymentMethod);
 
       // Agregar separación si está habilitada
       if (separation.enabled && separation.percentage > 0) {
-        console.log("Agregando Separación:", separation);
         // Buscar si ya existe una separación con fecha en el schedule actual
         const existingSeparacion = schedule.find(item => item.item === "Separación");
         newSchedule.push({
@@ -520,7 +509,6 @@ const LotInfoModal = ({
 
       // Buscar o agregar inicial
       if (initial.percentage > 0) {
-        console.log("Agregando Inicial:", initial);
         // Buscar si ya existe una inicial con fecha en el schedule actual
         const existingInicial = schedule.find(item => item.item === "Inicial");
         newSchedule.push({
@@ -598,7 +586,6 @@ const LotInfoModal = ({
 
       // Buscar o agregar inicial
       if (initial.percentage > 0) {
-        console.log("Agregando Inicial:", initial);
         // Buscar si ya existe una inicial con fecha en el schedule actual
         const existingInicial = schedule.find(item => item.item === "Inicial");
         newSchedule.push({
@@ -657,7 +644,6 @@ const LotInfoModal = ({
 
       // Buscar o agregar inicial
       if (initial.percentage > 0) {
-        console.log("Agregando Inicial:", initial);
         // Buscar si ya existe una inicial con fecha en el schedule actual
         const existingInicial = schedule.find(item => item.item === "Inicial");
         newSchedule.push({
@@ -684,28 +670,10 @@ const LotInfoModal = ({
         });
       }
     }
-
-    console.log(
-      "Schedule final:",
-      newSchedule.map((item) => ({
-        item: item.item,
-        percentage: item.percentage,
-      }))
-    );
     // Aplicar cálculo preciso de montos
     const preciseSchedule = calculatePreciseAmounts(newSchedule, finalPrice);
     setSchedule(preciseSchedule);
     setNeedsUpdate(false);
-
-    // Log después de setSchedule para ver si se modifica
-    setTimeout(() => {
-      console.log("Schedule DESPUÉS de setSchedule:", schedule);
-      console.log("Schedule DESPUÉS tiene", schedule.length, "elementos");
-      console.log(
-        "Schedule DESPUÉS elementos:",
-        schedule.map((item) => item.item)
-      );
-    }, 100);
 
     // Actualizar fecha final calculada
     if (paymentMethod === "credito_directo" && numberOfInstallments > 0) {
@@ -805,7 +773,6 @@ const LotInfoModal = ({
   };
 
   const generateSchedule = () => {
-    console.log("=== EJECUTANDO generateSchedule ===");
     // Sincronizar estados superiores desde la tabla para Separación e Inicial
     syncSeparationAndInitialFromSchedule();
     
@@ -816,7 +783,6 @@ const LotInfoModal = ({
       );
       
       if (hasEditedCuotas) {
-        console.log("Preservando cuotas editadas al regenerar cronograma");
         // Solo recalcular fechas y mantener valores editados
         const newSchedule = schedule.map((item, index) => ({
           ...item,
@@ -877,11 +843,10 @@ const LotInfoModal = ({
     }
   };
 
-  const handleFieldChange = (_field: string) => {
-    console.log("=== EJECUTANDO handleFieldChange ===", _field);
-    setNeedsUpdate(true);
-    // No llamar calculateSchedule automáticamente para evitar bucles
-    // El usuario debe presionar "Generar Cronograma" manualmente
+  const handleFieldChange = (_field?: string) => {
+    if (_field) {
+      setNeedsUpdate(true);
+    }
   };
 
   const handleInstallmentChange = (
@@ -937,8 +902,6 @@ const LotInfoModal = ({
     schedule: any[],
     finalPrice: number
   ) => {
-    console.log("=== EJECUTANDO recalculateRemainingInstallments ===");
-    
     // Calcular el porcentaje ya ocupado por items fijos y cuotas editadas
     let usedPercentage = 0;
     
@@ -966,16 +929,6 @@ const LotInfoModal = ({
     
     // Calcular el porcentaje restante para distribuir entre cuotas no editadas
     const remainingPercentage = 100 - usedPercentage;
-
-    console.log("Recalculando cuotas:", {
-      usedPercentage,
-      remainingPercentage,
-      schedule: schedule.map((item) => ({
-        item: item.item,
-        percentage: item.percentage,
-        isEdited: item.isEdited,
-      })),
-    });
 
     // Buscar solo CUOTAS que no han sido editadas (no tocar separación, inicial, crédito hipotecario, etc.)
     const uneditedInstallments = schedule.filter((item) => 
@@ -1081,8 +1034,7 @@ const LotInfoModal = ({
     
     // Usar el número de WhatsApp del vendedor seleccionado
     const whatsappUrl = `https://wa.me/${selectedSeller.whatsapp}?text=${encodedMessage}`;
-    
-    console.log(`Enviando WhatsApp a ${selectedSeller.nombre} (${selectedSeller.whatsapp})`);
+  
     
     // Abrir WhatsApp en una nueva ventana
     window.open(whatsappUrl, '_blank');
@@ -1344,6 +1296,15 @@ const LotInfoModal = ({
     pdf.text('100%', 120, yPosition + 2);
     pdf.text(formatAmount(totalAmount), 160, yPosition + 2);
 
+    // Nota de vigencia
+    if (contactData?.validity?.days) {
+      yPosition -= 0;
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(11);
+      pdf.setTextColor(colors.text);
+      pdf.text(`El presente cronograma es válido por ${contactData.validity.days} días`, 20, yPosition + 12);
+    }
+
     // Pie de página (como footer)
     yPosition = pageHeight - 20;
     pdf.setFont('helvetica', 'normal');
@@ -1376,10 +1337,7 @@ const LotInfoModal = ({
 
   // Función para guardar cotización en la API
   const saveQuotationToAPI = async (contactData: any) => {
-    try {
-      console.log('Guardando cotización en la API...');
-      console.log('Datos del lote:', { loteData, lotData, LOT_ID });
-      
+      try {
       // Generar el PDF real usando el formato estándar
       const pdfBlob = await generateDocument(contactData, 'pdf');
       
@@ -1410,20 +1368,11 @@ const LotInfoModal = ({
       formData.append('discount', validDiscount.toString());
       formData.append('project_id', PROJECT_ID);
       formData.append('agent_id', agentId);
+      // Vigencia en días para la cotización
+      if (contactData?.validity?.days) {
+        formData.append('validity_days', String(contactData.validity.days));
+      }
       formData.append('pdf_file', pdfBlob, `cotizacion_${lotData.lot}_${new Date().toISOString().split('T')[0]}.pdf`);
-
-      console.log('Datos de la cotización:', {
-        code: quotationCode,
-        client: contactData.cliente?.nombre,
-        email: contactData.cliente?.email,
-        phone: contactData.cliente?.telefono,
-        identification_number: contactData.cliente?.dni,
-        lot_id: LOT_ID,
-        agreed_price: loteData?.precio || 445000,
-        discount: discountPercentage,
-        project_id: PROJECT_ID,
-        agent_id: agentId
-      });
 
       // Verificar que todos los campos requeridos estén presentes
       const requiredFields = {
@@ -1439,21 +1388,9 @@ const LotInfoModal = ({
         agent_id: agentId
       };
 
-      console.log('Campos requeridos verificados:', requiredFields);
-      
-      // Verificar tipos de datos
-      console.log('Tipos de datos:', {
-        code: typeof requiredFields.code,
-        client: typeof requiredFields.client,
-        email: typeof requiredFields.email,
-        phone: typeof requiredFields.phone,
-        identification_number: typeof requiredFields.identification_number,
-        lot_id: typeof requiredFields.lot_id,
-        agreed_price: typeof requiredFields.agreed_price,
-        discount: typeof requiredFields.discount,
-        project_id: typeof requiredFields.project_id,
-        agent_id: typeof requiredFields.agent_id
-      });
+      if (Object.values(requiredFields).some(value => !value)) {
+        throw new Error('Todos los campos requeridos deben estar presentes');
+      }
 
       // Obtener token de autenticación
       const token = localStorage.getItem('auth_token');
@@ -1461,6 +1398,35 @@ const LotInfoModal = ({
       if (!token) {
         throw new Error('No hay token de autenticación. Por favor, inicie sesión nuevamente.');
       }
+      
+      // Previsualizar lo que se enviará (FormData no es legible directamente)
+      const payloadPreview = {
+        endpoint: `${BASE_API}/quotations`,
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: {
+          code: quotationCode,
+          client: contactData.cliente?.nombre || '',
+          email: contactData.cliente?.email || '',
+          phone: contactData.cliente?.telefono || '',
+          identification_number: contactData.cliente?.dni || '',
+          lot_id: LOT_ID,
+          agreed_price: validAgreedPrice,
+          discount: validDiscount,
+          project_id: PROJECT_ID,
+          agent_id: agentId,
+          validity_days: contactData?.validity?.days || 0,
+          pdf_file: {
+            name: `cotizacion_${lotData.lot}_${new Date().toISOString().split('T')[0]}.pdf`,
+            type: pdfBlob?.type,
+            size: pdfBlob?.size,
+          },
+        },
+      };
+      console.log('POST /quotations payload (preview):', payloadPreview);
       
       // Enviar a la API
       const response = await fetch(`${BASE_API}/quotations`, {
@@ -1474,8 +1440,6 @@ const LotInfoModal = ({
 
       if (response.ok) {
         const result = await response.json();
-        console.log('Cotización guardada exitosamente:', result);
-        alert('Cotización guardada exitosamente en el sistema');
         return result;
       } else {
         const errorData = await response.json();
@@ -1547,7 +1511,6 @@ const LotInfoModal = ({
   };
 
   const handleClearSchedule = () => {
-    console.log("=== LIMPIANDO CRONOGRAMA ===");
     
     // Resetear todos los estados del cronograma
     setSeparation({ amount: 0, percentage: 0, enabled: false });
@@ -1562,7 +1525,6 @@ const LotInfoModal = ({
     setDateError("");
     setCalculatedFinalDate("");
     
-    console.log("Cronograma limpiado completamente");
   };
 
   // Funciones para los botones de funcionalidades
@@ -1702,6 +1664,12 @@ const LotInfoModal = ({
           </div>
         </div>
         
+        ${contactData?.validity?.days ? `
+        <div class="info-section">
+          <p><strong>Vigencia:</strong> El presente cronograma es válido por ${contactData.validity.days} días.</p>
+        </div>
+        ` : ''}
+        
         <div class="info-section">
           <h2>Cronograma de Pagos</h2>
           <table class="schedule-table">
@@ -1783,7 +1751,6 @@ const LotInfoModal = ({
         if (isLoggedIn) {
           try {
             await saveQuotationToAPI(contactData);
-            console.log('Cotización guardada en BD antes de imprimir');
           } catch (error) {
             console.error('Error al guardar cotización en BD:', error);
             // Continuar con la impresión aunque falle el guardado
@@ -1800,7 +1767,6 @@ const LotInfoModal = ({
           // Si está logueado, guardar en BD
           if (isLoggedIn) {
             await saveQuotationToAPI(contactData);
-            console.log('Cotización guardada en BD');
           }
           
           // Generar y descargar el PDF
@@ -1850,7 +1816,6 @@ const LotInfoModal = ({
           if (isLoggedIn) {
             try {
               await saveQuotationToAPI(contactData);
-              console.log('Cotización guardada en BD antes de enviar');
             } catch (error) {
               console.error('Error al guardar cotización en BD:', error);
               // Continuar con el envío aunque falle el guardado
@@ -1947,7 +1912,7 @@ const LotInfoModal = ({
         <div className="lot-modal-content">
           <div className="lot-identification">
             <div className="lot-id-left">
-              <div className="lot-stage-badge">Etapa 1</div>
+              <div className="lot-stage-badge">Etapa {lotData.phase || "1"}</div>
               <div className="lot-box">
                 <span id="modalLot">{lotData.lot}</span>
               </div>
@@ -2123,7 +2088,7 @@ const LotInfoModal = ({
               </div>
               <div className="quotation-table-row">
                 <div className="quotation-cell item-name">Lote</div>
-                <div className="quotation-cell item-value">Etapa 1</div>
+                <div className="quotation-cell item-value">Etapa {lotData.phase || "1"}</div>
                 <div className="quotation-cell item-value">
                   {(() => {
                     // Parse format "Mz. E - Lote 7" to "E7"
@@ -2328,48 +2293,28 @@ const LotInfoModal = ({
                           value={getFormattedValue(initial.amount, 'usd', 'initial-amount-hipotecario')}
                           onFocus={() => handleInputFocus('initial-amount-hipotecario')}
                           onBlur={() => handleDecimalBlur('initial-amount-hipotecario', (amount) => {
-                            console.log("=== CAMBIANDO INPUT INICIAL ===");
-                            console.log(
-                              "Schedule ANTES de setInitial:",
-                              schedule
-                            );
                             const percentage =
                               (amount /
                                 ((loteData?.precio || 445000) - discountAmount)) *
                               100;
-                            console.log("Nuevo initial:", { amount, percentage });
                             setInitial({ amount, percentage });
                             handleFieldChange("initial");
 
                             // Log después de setInitial para ver si se modifica el schedule
                             setTimeout(() => {
-                              console.log(
-                                "Schedule DESPUÉS de setInitial:",
-                                schedule
-                              );
                             }, 100);
                           })}
                         onChange={(e) => {
                           handleDecimalInput(e.target.value, 'initial-amount-hipotecario', (amount) => {
-                            console.log("=== CAMBIANDO INPUT INICIAL ===");
-                            console.log(
-                              "Schedule ANTES de setInitial:",
-                              schedule
-                            );
                             const percentage =
                               (amount /
                                 ((loteData?.precio || 445000) - discountAmount)) *
                               100;
-                            console.log("Nuevo initial:", { amount, percentage });
                             setInitial({ amount, percentage });
                             handleFieldChange("initial");
 
                             // Log después de setInitial para ver si se modifica el schedule
                             setTimeout(() => {
-                              console.log(
-                                "Schedule DESPUÉS de setInitial:",
-                                schedule
-                              );
                             }, 100);
                           });
                         }}
@@ -2388,13 +2333,6 @@ const LotInfoModal = ({
                             setInitial({ amount, percentage: validatedPercentage });
                             handleFieldChange("initial");
 
-                            // Log después de setInitial para ver si se modifica el schedule
-                            setTimeout(() => {
-                              console.log(
-                                "Schedule DESPUÉS de setInitial:",
-                                schedule
-                              );
-                            }, 100);
                           })}
                         onChange={(e) => {
                           handleDecimalInput(e.target.value, 'initial-percentage-hipotecario', (percentage) => {
@@ -2405,13 +2343,6 @@ const LotInfoModal = ({
                             setInitial({ amount, percentage: validatedPercentage });
                             handleFieldChange("initial");
 
-                            // Log después de setInitial para ver si se modifica el schedule
-                            setTimeout(() => {
-                              console.log(
-                                "Schedule DESPUÉS de setInitial:",
-                                schedule
-                              );
-                            }, 100);
                           });
                         }}
                       />
@@ -2640,48 +2571,25 @@ const LotInfoModal = ({
                           value={getFormattedValue(initial.amount, 'usd', 'initial-amount-directo')}
                           onFocus={() => handleInputFocus('initial-amount-directo')}
                           onBlur={() => handleDecimalBlur('initial-amount-directo', (amount) => {
-                            console.log("=== CAMBIANDO INPUT INICIAL ===");
-                            console.log(
-                              "Schedule ANTES de setInitial:",
-                              schedule
-                            );
                             const percentage =
                               (amount /
                                 ((loteData?.precio || 445000) - discountAmount)) *
                               100;
-                            console.log("Nuevo initial:", { amount, percentage });
                             setInitial({ amount, percentage });
                             handleFieldChange("initial");
 
-                            // Log después de setInitial para ver si se modifica el schedule
-                            setTimeout(() => {
-                              console.log(
-                                "Schedule DESPUÉS de setInitial:",
-                                schedule
-                              );
-                            }, 100);
                           })}
                         onChange={(e) => {
                           handleDecimalInput(e.target.value, 'initial-amount-directo', (amount) => {
-                            console.log("=== CAMBIANDO INPUT INICIAL ===");
-                            console.log(
-                              "Schedule ANTES de setInitial:",
-                              schedule
-                            );
                             const percentage =
                               (amount /
                                 ((loteData?.precio || 445000) - discountAmount)) *
                               100;
-                            console.log("Nuevo initial:", { amount, percentage });
                             setInitial({ amount, percentage });
                             handleFieldChange("initial");
 
                             // Log después de setInitial para ver si se modifica el schedule
                             setTimeout(() => {
-                              console.log(
-                                "Schedule DESPUÉS de setInitial:",
-                                schedule
-                              );
                             }, 100);
                           });
                         }}
@@ -2702,10 +2610,6 @@ const LotInfoModal = ({
 
                             // Log después de setInitial para ver si se modifica el schedule
                             setTimeout(() => {
-                              console.log(
-                                "Schedule DESPUÉS de setInitial:",
-                                schedule
-                              );
                             }, 100);
                           })}
                         onChange={(e) => {
@@ -2719,10 +2623,6 @@ const LotInfoModal = ({
 
                             // Log después de setInitial para ver si se modifica el schedule
                             setTimeout(() => {
-                              console.log(
-                                "Schedule DESPUÉS de setInitial:",
-                                schedule
-                              );
                             }, 100);
                           });
                         }}
@@ -2873,11 +2773,6 @@ const LotInfoModal = ({
                           onFocus={() => handleInputFocus('initial-amount-contado')}
                           onBlur={() => handleInputBlur('initial-amount-contado')}
                         onChange={(e) => {
-                          console.log("=== CAMBIANDO INPUT INICIAL ===");
-                          console.log(
-                            "Schedule ANTES de setInitial:",
-                            schedule
-                          );
                           const amount =
                             parseFloat(
                               e.target.value.replace(/[^0-9.-]/g, "")
@@ -2886,16 +2781,11 @@ const LotInfoModal = ({
                             (amount /
                               ((loteData?.precio || 445000) - discountAmount)) *
                             100;
-                          console.log("Nuevo initial:", { amount, percentage });
                           setInitial({ amount, percentage });
                           handleFieldChange("initial");
 
                           // Log después de setInitial para ver si se modifica el schedule
                           setTimeout(() => {
-                            console.log(
-                              "Schedule DESPUÉS de setInitial:",
-                              schedule
-                            );
                           }, 100);
                         }}
                       />
@@ -2920,10 +2810,6 @@ const LotInfoModal = ({
 
                           // Log después de setInitial para ver si se modifica el schedule
                           setTimeout(() => {
-                            console.log(
-                              "Schedule DESPUÉS de setInitial:",
-                              schedule
-                            );
                           }, 100);
                         }}
                       />
@@ -2965,12 +2851,6 @@ const LotInfoModal = ({
                   needsUpdate ? "update-btn" : ""
                 }`}
                 onClick={() => {
-                  console.log("=== BOTÓN CLICKEADO ===", {
-                    needsUpdate,
-                    firstPaymentDate,
-                    numberOfInstallments,
-                    dateError,
-                  });
                   if (needsUpdate) {
                     updateSchedule();
                   } else {

@@ -232,7 +232,6 @@ const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => 
   };
 
   const handleStatusChange = (newStatus: string) => {
-    console.log("Cambiando estado de:", status, "a:", newStatus);
     setStatus(newStatus);
     
     // Forzar re-render inmediato de los botones

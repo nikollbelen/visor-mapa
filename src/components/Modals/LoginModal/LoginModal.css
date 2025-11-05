@@ -124,6 +124,50 @@
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
 }
 
+/* Password input wrapper with eye icon */
+.password-input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.password-input-wrapper .form-input {
+  width: 100%;
+  padding-right: 45px;
+  box-sizing: border-box;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #aaa;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.3s;
+  z-index: 1;
+  width: 24px;
+  height: 24px;
+}
+
+.password-toggle:hover {
+  color: #1fb27a;
+}
+
+.password-toggle:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.password-toggle i {
+  font-size: 1rem;
+}
+
 .error-message {
   color: #ef4444;
   font-size: 0.75rem;

@@ -12,6 +12,7 @@ import EntornoButtons from "./components/Overlays/EntornoButtons/EntornoButtons"
 import VideoOverlay from "./components/Overlays/VideoOverlay/VideoOverlay";
 import ImageOverlay from "./components/Overlays/ImageOverlay/ImageOverlay";
 import Photos360Overlay from "./components/Overlays/Photos360Overlay/Photos360Overlay";
+import TimeOfDayControl from "./components/Overlays/TimeOfDayControl/TimeOfDayControl";
 
 function AppContent() {
   const { user } = useAuth();
@@ -357,6 +358,9 @@ function AppContent() {
           }
         />
       )}
+
+      {/* Control de hora del día - siempre visible */}
+      <TimeOfDayControl isVisible={true} />
     </>
   );
 }

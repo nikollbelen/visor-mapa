@@ -16,6 +16,18 @@ const viewer = new Cesium.Viewer("cesiumContainer", {
   requestRenderMode: true,
   pickTranslucentDepth: true,
 });
+
+// Habilitar sombras en la escena
+viewer.shadows = true;
+viewer.scene.globe.shadows = window.Cesium.ShadowMode.RECEIVE_ONLY;
+
+// Configurar el shadow map para mejor calidad de sombras
+if (viewer.scene.shadowMap) {
+  viewer.scene.shadowMap.enabled = true;
+  viewer.scene.shadowMap.size = 2048; // Tamaño del shadow map (mayor = mejor calidad)
+  viewer.scene.shadowMap.softShadows = true; // Sombras suaves
+}
+
 // Global variables for lots
 let lotesPositions = [];
 let processedLots = [];
@@ -92,7 +104,7 @@ let minArea = 0;
 // Load custom map image
 try {
   viewer.imageryLayers.addImageryProvider(
-    await window.Cesium.IonImageryProvider.fromAssetId(3971478)
+    await window.Cesium.IonImageryProvider.fromAssetId(4012024)
   );
 } catch (error) {
   console.error("❌ Error loading map image:", error);
@@ -107,7 +119,8 @@ async function loadLotesData() {
     let fidToApiProps = new Map();
     try {
       const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
-      const apiUrl = `${apiBaseUrl}/lots/project/6904f3e87d0fa4e90586cdf9`;
+      const projectId = import.meta.env.VITE_PROJECT_ID;
+      const apiUrl = `${apiBaseUrl}/lots/project/${projectId}`;
       
       const apiResp = await fetch(apiUrl, { 
         method: "GET",
@@ -171,6 +184,8 @@ async function loadLotesData() {
 
     // Extract all polygon positions for flyToView
     lotesPositions = extractLotesPositions(lotesData);
+    // Agregar modelo 3D centrado usando el contorno del proyecto
+    addTreeModelAtCenter();
 
     // Process and format lot data once
     const feats = lotesData.features || [];
@@ -258,9 +273,19 @@ async function loadLotesData() {
         // Get the number from properties
         const lote = entity.properties.lote.getValue();
 
+        // Elevar físicamente el label por encima del polígono
+        const labelCartographic = window.Cesium.Cartographic.fromCartesian(center);
+        const elevatedLabelPosition = window.Cesium.Cartographic.toCartesian(
+          new window.Cesium.Cartographic(
+            labelCartographic.longitude,
+            labelCartographic.latitude,
+            labelCartographic.height + 0.4 // 0.4m por encima del polígono (que está a 0.1m)
+          )
+        );
+
         // Add a label at the center of the polygon
         const labelEntity = viewer.entities.add({
-          position: center,
+          position: elevatedLabelPosition,
           label: {
             text:
               entity.properties.manzana && entity.properties.lote
@@ -273,9 +298,10 @@ async function loadLotesData() {
             style: window.Cesium.LabelStyle.FILL_AND_OUTLINE,
             verticalOrigin: window.Cesium.VerticalOrigin.CENTER,
             pixelOffset: new window.Cesium.Cartesian2(0, 0),
-            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            // Combinar elevación física con disableDepthTestDistance para asegurar visibilidad
+            disableDepthTestDistance: 0.3, // Pequeño valor para respetar modelos 3D pero ignorar polígonos cercanos
             scale: getLabelScale(),
-            heightReference: window.Cesium.HeightReference.CLAMP_TO_GROUND,
+            heightReference: window.Cesium.HeightReference.NONE, // Usar posición absoluta ya que la elevamos manualmente
             show: !!lote,
           },
         });
@@ -398,6 +424,8 @@ async function loadLotesData() {
           window.Cesium.HeightReference.RELATIVE_TO_GROUND;
         e.polygon.outline = true;
         e.polygon.outlineColor = window.Cesium.Color.BLACK.withAlpha(0);
+        // Configurar polígonos para que no bloqueen los labels
+        e.polygon.disableDepthTestDistance = 0; // Los polígonos respetan la profundidad para que los labels estén por encima
 
         // Assign material according to status
         let baseMaterial = disponible; // Default material
@@ -499,6 +527,22 @@ function setupLoteInteractions() {
     return isNaN(num) ? undefined : num;
   };
 
+  window.getId = (entity) => {
+    if (!entity || !entity.properties) return undefined;
+    const _api = entity.properties._api;
+    if (!_api) return undefined;
+    const apiValue = typeof _api.getValue === "function" ? _api.getValue() : _api;
+    return apiValue?.id;
+  };
+
+  window.getPhase = (entity) => {
+    if (!entity || !entity.properties) return undefined;
+    const _api = entity.properties._api;
+    if (!_api) return undefined;
+    const apiValue = typeof _api.getValue === "function" ? _api.getValue() : _api;
+    return apiValue?.phase;
+  };
+
   // Function to calculate lot boundaries/colindancias
   window.getColindancias = (entity) => {
     if (!entity || !entity.properties)
@@ -556,6 +600,9 @@ function setupLoteInteractions() {
   let highlighted = null;
   let highlightedOriginalMaterial = null;
 
+  
+  const btnGrid = document.getElementById("grid");
+
   // Hover interaction
   handler.setInputAction((movement) => {
     // 1) Quick attempt with drillPick
@@ -591,7 +638,17 @@ function setupLoteInteractions() {
         // Avoid highlighting if already selected
         if (highlighted !== entity && entity !== selected) {
           highlighted = entity;
-          entity.polygon.material = modeSelected.withAlpha(0.5);
+          if (btnGrid.classList.contains("active")) {
+            if (entity.properties.estado.getValue() === "disponible") {
+              entity.polygon.material = disponible.withAlpha(0.5);
+            } else if (entity.properties.estado.getValue() === "reservado") {
+              entity.polygon.material = reservado.withAlpha(0.5);
+            } else if (entity.properties.estado.getValue() === "vendido") {
+              entity.polygon.material = vendido.withAlpha(0.5);
+            }
+          } else {
+            entity.polygon.material = modeSelected.withAlpha(0);
+          }
           viewer.scene.requestRender();
         }
       }
@@ -629,7 +686,18 @@ function setupLoteInteractions() {
     // Select new entity
     selected = entity;
     selectedOriginalMaterial = entity._baseMaterial || entity.polygon.material;
-    entity.polygon.material = modeSelected;
+    
+    if (btnGrid.classList.contains("active")) {
+      if (entity.properties.estado.getValue() === "disponible") {
+        entity.polygon.material = disponible.withAlpha(0.5);
+      } else if (entity.properties.estado.getValue() === "reservado") {
+        entity.polygon.material = reservado.withAlpha(0.5);
+      } else if (entity.properties.estado.getValue() === "vendido") {
+        entity.polygon.material = vendido.withAlpha(0.5);
+      }
+    } else {
+      entity.polygon.material = modeSelected.withAlpha(0);
+    }
 
     viewer.scene.requestRender();
 
@@ -643,6 +711,8 @@ function setupLoteInteractions() {
           precio: getPrecio(entity),
           estado: getEstado(entity),
           boundaries: getColindancias(entity),
+          id: getId(entity),
+          phase: getPhase(entity),
         },
       })
     );
@@ -716,6 +786,153 @@ function flyToView(positions) {
   });
 }
 
+// Agrega el modelo GLB de árbol en el centro del proyecto
+function addTreeModelAtCenter() {
+  try {
+    let positionCartesian = null;
+
+    if (lotesPositions && lotesPositions.length > 0) {
+      const boundingSphere = window.Cesium.BoundingSphere.fromPoints(lotesPositions);
+      const centerCartesian = boundingSphere.center;
+      const centerCartographic = window.Cesium.Cartographic.fromCartesian(centerCartesian);
+      positionCartesian = window.Cesium.Cartesian3.fromRadians(
+        centerCartographic.longitude,
+        centerCartographic.latitude,
+        0
+      );
+    } else {
+      // Coordenadas de fallback si aún no hay posiciones de lotes
+      positionCartesian = window.Cesium.Cartesian3.fromDegrees(-71.8970, -17.0998, 0);
+    }
+
+    // Configurar orientación del modelo (rotación)
+    // heading: rotación horizontal (0 = Norte, Math.PI/2 = Este, Math.PI = Sur, 3*Math.PI/2 = Oeste)
+    // pitch: inclinación hacia arriba/abajo (0 = horizontal, negativo = hacia arriba, positivo = hacia abajo)
+    // roll: rotación sobre el eje del modelo (normalmente 0)
+    const heading = window.Cesium.Math.toRadians(-42); // Rotación horizontal en grados (0 = sin rotación)
+    const pitch = window.Cesium.Math.toRadians(0);    // Inclinación vertical en grados (0 = vertical)
+    const roll = window.Cesium.Math.toRadians(0);    // Rotación sobre el eje del modelo (0 = sin rotación)
+    
+    // Configurar desplazamiento del modelo (en metros)
+    // forwardOffset: positivo = adelante, negativo = atrás
+    // rightOffset: positivo = derecha, negativo = izquierda
+    // upOffset: positivo = arriba, negativo = abajo
+    const forwardOffset = -0.97;  // Metros hacia adelante (positivo) o atrás (negativo)
+    const rightOffset = -0.03;     // Metros hacia la derecha (positivo) o izquierda (negativo)
+    const upOffset = -1;         // Metros hacia arriba (positivo) o abajo (negativo)
+    
+    // Calcular posición final con offset
+    let finalPosition = positionCartesian;
+    
+    if (forwardOffset !== 0 || rightOffset !== 0 || upOffset !== 0) {
+      // Convertir el centro a Cartographic para trabajar con offsets
+      const centerCartographic = window.Cesium.Cartographic.fromCartesian(positionCartesian);
+      
+      // Calcular offsets en latitud y longitud (aproximación para distancias pequeñas)
+      // 1 grado de latitud ≈ 111,000 metros
+      // 1 grado de longitud ≈ 111,000 * cos(latitud) metros
+      const metersPerDegreeLat = 111000;
+      const metersPerDegreeLon = 111000 * Math.cos(centerCartographic.latitude);
+      
+      // Calcular dirección basada en el heading
+      const forwardX = Math.sin(heading) * forwardOffset; // Componente Este/Oeste
+      const forwardY = Math.cos(heading) * forwardOffset; // Componente Norte/Sur
+      
+      // Calcular dirección perpendicular (90 grados a la derecha del heading)
+      const rightX = Math.cos(heading) * rightOffset;
+      const rightY = -Math.sin(heading) * rightOffset;
+      
+      // Aplicar offsets
+      const deltaLat = (forwardY + rightY) / metersPerDegreeLat;
+      const deltaLon = (forwardX + rightX) / metersPerDegreeLon;
+      const deltaHeight = upOffset;
+      
+      // Crear nueva posición Cartographic con latitud y longitud
+      const newCartographic = new window.Cesium.Cartographic(
+        centerCartographic.longitude + deltaLon,
+        centerCartographic.latitude + deltaLat,
+        0 // Altura inicial en 0
+      );
+      
+      // Convertir a Cartesian3 primero
+      finalPosition = window.Cesium.Cartographic.toCartesian(newCartographic);
+      
+      // Aplicar offset vertical usando el vector "up" (hacia arriba) desde el centro de la Tierra
+      if (upOffset !== 0) {
+        const upVector = window.Cesium.Cartesian3.normalize(finalPosition, new window.Cesium.Cartesian3());
+        const offsetVector = window.Cesium.Cartesian3.multiplyByScalar(upVector, upOffset, new window.Cesium.Cartesian3());
+        finalPosition = window.Cesium.Cartesian3.add(finalPosition, offsetVector, finalPosition);
+      }
+    }
+    
+    // Configurar escala del modelo
+    // scale: escala general del modelo (1.0 = tamaño original, mayor = más grande)
+    const modelScale = 1.01; // Aumentar este valor para hacer el modelo más ancho/grande
+    
+    const hpr = new window.Cesium.HeadingPitchRoll(heading, pitch, roll);
+    const orientation = window.Cesium.Transforms.headingPitchRollQuaternion(
+      finalPosition,
+      hpr
+    );
+
+    const treeEntity = viewer.entities.add({
+      name: "tree-model",
+      position: finalPosition,
+      orientation: orientation,
+      model: {
+        uri: "/glbData/tree.glb",
+        minimumPixelSize: 64,
+        maximumScale: 50,
+        scale: modelScale,
+        shadows: window.Cesium.ShadowMode.ENABLED, // El modelo emite sombras
+        heightReference: window.Cesium.HeightReference.RELATIVE_TO_GROUND, // Altura relativa al terreno (permite upOffset)
+        // Configurar iluminación del modelo para mejor visibilidad en áreas oscuras
+        imageBasedLightingFactor: new window.Cesium.Cartesian2(1.8, 1.8), // Aumentar iluminación basada en imagen (IBL)
+        // Esto hace que el modelo refleje más luz ambiente del cielo
+      },
+    });
+
+    // Agregar luces indirectas alrededor del modelo para iluminar las áreas oscuras
+    addAmbientLightsAroundModel(finalPosition, modelScale);
+
+    if (viewer) viewer.scene.requestRender();
+  } catch (error) {
+    console.error("Error agregando el modelo de árbol:", error);
+  }
+}
+
+// Función para agregar luces indirectas alrededor del modelo
+function addAmbientLightsAroundModel(modelPosition, modelScale) {
+  try {
+    // Aumentar la iluminación ambiente global de la escena
+    if (viewer.scene.globe) {
+      // Aumentar la luminosidad base del globo para mejor iluminación indirecta
+      viewer.scene.globe.baseColor = new window.Cesium.Color(0.4, 0.4, 0.4, 1.0);
+    }
+    
+    // Configurar iluminación ambiente mejorada para modelos
+    if (viewer.scene.skyAtmosphere) {
+      viewer.scene.skyAtmosphere.hueShift = 0.0;
+      viewer.scene.skyAtmosphere.saturationShift = 0.0;
+      viewer.scene.skyAtmosphere.brightnessShift = 0.3; // Aumentar brillo ambiente (0.0 a 1.0)
+      viewer.scene.skyAtmosphere.rayleighCoefficient = 0.0001; // Reducir dispersión para más luz
+    }
+    
+    // Configurar iluminación ambiente global para modelos 3D
+    // Aumentar la iluminación ambiente en la escena
+    if (viewer.scene.lightSource) {
+      // Ajustar la fuente de luz principal para incluir más luz ambiente
+      viewer.scene.lightSource.directionalLightColor = new window.Cesium.Color(1.0, 1.0, 1.0, 1.0);
+    }
+    
+    // Habilitar iluminación basada en imagen (IBL) para mejor iluminación indirecta
+    viewer.scene.imageBasedLightingFactor = new window.Cesium.Cartesian2(1.5, 1.5); // Aumentar IBL
+    
+  } catch (error) {
+    console.error("Error agregando luces indirectas:", error);
+  }
+}
+
 function hoverMarcadores() {
   if (!viewer) return;
 
@@ -758,7 +975,6 @@ function hoverMarcadores() {
 // Sidebar
 
 function reiniciarMenu() {
-  console.log("Reiniciando menu");
   // Remove active classes from all sidebar buttons
   const fotosBtn = document.getElementById("fotos");
   const areasBtn = document.getElementById("areas");
@@ -911,7 +1127,6 @@ function clickMarcadores360() {
       if (entityId && entityId.startsWith("marcador_foto_")) {
         const kuulaUrl = entity.properties.kuulaUrl._value;
         openOverlay360(kuulaUrl);
-        console.log("clickMarcadores360 click");
       }
     }
   }, window.Cesium.ScreenSpaceEventType.LEFT_CLICK);
@@ -1234,17 +1449,8 @@ window.handleLotCardClick = function (lotNumber) {
       ? entity.properties.lote._value
       : "";
 
-    console.log("Comparando:", {
-      buscandoManzana: manzana,
-      buscandoLote: loteNum,
-      entityManzana: entityManzana,
-      entityLote: entityLote,
-    });
-
     return entityManzana === manzana && entityLote === loteNum;
   });
-
-  console.log("Entidad encontrada:", lotEntity);
 
   if (lotEntity) {
     // Deseleccionar el lote anteriormente seleccionado
@@ -1280,6 +1486,8 @@ window.handleLotCardClick = function (lotNumber) {
           precio: getPrecio(lotEntity),
           estado: getEstado(lotEntity),
           boundaries: getColindancias(lotEntity),
+          id: getId(lotEntity),
+          phase: getPhase(lotEntity),
         },
       })
     );
@@ -1862,8 +2070,6 @@ function toggleGrid() {
   if (!lotesDataSource) return;
   const entitiesAll = lotesDataSource.entities.values.filter((e) => e.polygon);
   entitiesAll.forEach((e) => {
-    console.log(e.properties.manzana._value);
-    console.log(e.properties.lote._value);
     const loteValue = e.properties.lote ? e.properties.lote.getValue() : "";
     if (loteValue === "") {
       e.polygon.material = disponible.withAlpha(0);
@@ -1906,3 +2112,67 @@ window.zoomOut = zoomOut;
 window.goHome = goHome;
 window.view3D = view3D;
 window.toggleGrid = toggleGrid;
+
+// Función para controlar la hora del día y posicionar el sol
+function setTimeOfDay(hour) {
+  if (!viewer) return;
+  
+  try {
+    // Asegurar que la hora esté en el rango 0-24
+    hour = Math.max(0, Math.min(24, hour));
+    
+    // Obtener la posición central del proyecto para calcular la hora solar
+    let centerPosition = null;
+    if (lotesPositions && lotesPositions.length > 0) {
+      const boundingSphere = window.Cesium.BoundingSphere.fromPoints(lotesPositions);
+      centerPosition = boundingSphere.center;
+    } else {
+      // Usar coordenadas de fallback
+      centerPosition = window.Cesium.Cartesian3.fromDegrees(-71.8970, -17.0998, 0);
+    }
+    
+    // Convertir a Cartographic para obtener latitud
+    const centerCartographic = window.Cesium.Cartographic.fromCartesian(centerPosition);
+    
+    // Crear una fecha base (hoy) con la hora especificada
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const day = now.getDate();
+    
+    // Extraer horas y minutos de la hora decimal
+    const hours = Math.floor(hour);
+    const minutes = Math.floor((hour - hours) * 60);
+    
+    // Crear fecha con la hora especificada en hora LOCAL (no UTC)
+    // Esto asegura que la hora que se muestra sea la hora real del día
+    const dateTime = new Date(year, month, day, hours, minutes, 0);
+    
+    // Convertir a JulianDate de Cesium
+    const julianDate = window.Cesium.JulianDate.fromDate(dateTime);
+    
+    // Configurar el reloj de Cesium con la hora especificada
+    viewer.clock.currentTime = julianDate;
+    viewer.clock.shouldAnimate = false; // No animar automáticamente
+    
+    // Habilitar iluminación del globo y sol
+    viewer.scene.globe.enableLighting = true;
+    viewer.scene.sun.show = true;
+    viewer.scene.moon.show = true;
+    
+    // Asegurar que el sol se actualice según la hora
+    viewer.scene.globe.dynamicAtmosphereLighting = true;
+    viewer.scene.globe.dynamicAtmosphereLightingFromSun = true;
+    
+    // Forzar actualización de la escena
+    viewer.scene.requestRender();
+  } catch (error) {
+    console.error("Error al establecer la hora del día:", error);
+  }
+}
+
+// Exponer función globalmente
+window.setTimeOfDay = setTimeOfDay;
+
+// Inicializar con hora del mediodía por defecto
+setTimeOfDay(12);

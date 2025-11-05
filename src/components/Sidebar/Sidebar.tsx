@@ -139,7 +139,6 @@ const Sidebar = () => {
         }
         break;
       default:
-        console.log('Función no implementada para:', itemId);
     }
   };
 

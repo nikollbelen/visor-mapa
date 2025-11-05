@@ -27,6 +27,7 @@ const LoginModal = ({ isVisible, onClose }: LoginModalProps) => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Validar email
   const validateEmail = (email: string) => {
@@ -143,15 +144,26 @@ const LoginModal = ({ isVisible, onClose }: LoginModalProps) => {
                 {errors.email && <div className="error-message">{errors.email}</div>}
 
                 <label className="form-label" htmlFor="password">Contraseña</label>
-                <input
-                  id="password"
-                  type="password"
-                  className={`form-input ${errors.password ? 'error' : ''}`}
-                  placeholder="Campo de entrada"
-                  value={credentials.password}
-                  onChange={(e) => handleInputChange('password', e.target.value)}
-                  disabled={isLoading}
-                />
+                <div className="password-input-wrapper">
+                  <input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    className={`form-input ${errors.password ? 'error' : ''}`}
+                    placeholder="Campo de entrada"
+                    value={credentials.password}
+                    onChange={(e) => handleInputChange('password', e.target.value)}
+                    disabled={isLoading}
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    onClick={() => setShowPassword(!showPassword)}
+                    disabled={isLoading}
+                    aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  >
+                    <i className={`fas ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+                  </button>
+                </div>
                 {errors.password && <div className="error-message">{errors.password}</div>}
               </div>
 

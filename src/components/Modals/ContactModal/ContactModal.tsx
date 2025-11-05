@@ -14,6 +14,7 @@ interface ContactData {
   vendedor?: { id?: string; full_name?: string; email: string };
   cliente: { nombre: string; apellido?: string; tipoDocumento?: string; dni?: string; email: string; codigoPais?: string; telefono?: string };
   fileName?: string; // Para el tipo "save"
+  validity?: { days: number; from: string; to: string };
 }
 
 interface SellerData {
@@ -31,7 +32,19 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
       email: currentUser.email 
     } : { id: '', email: '' },
     cliente: { nombre: '', email: '', tipoDocumento: 'DNI', codigoPais: '+51', telefono: '' },
-    fileName: ''
+    fileName: '',
+    validity: (() => {
+      const today = new Date();
+      const toDdMmYyyy = (d: Date) => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+      const days = 7;
+      const to = new Date(today);
+      to.setDate(today.getDate() + (days - 1));
+      return {
+        days,
+        from: toDdMmYyyy(today),
+        to: toDdMmYyyy(to)
+      };
+    })()
   });
 
   const [sellers, setSellers] = useState<SellerData[]>([]);
@@ -166,6 +179,34 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
     const fecha = new Date().toISOString().split('T')[0];
     const cleanName = `${clienteNombre}_${clienteApellido}_${fecha}`.trim().replace(/\s+/g, '_');
     return cleanName || 'Documento_' + fecha;
+  };
+
+  // Recalcular fechas de vigencia cuando cambie los días
+  const recalcValidityDates = (days: number) => {
+    if (!days || days <= 0) {
+      setContactData(prev => ({
+        ...prev,
+        validity: {
+          days: 0,
+          from: '',
+          to: ''
+        }
+      }));
+      return;
+    }
+    const today = new Date();
+    const toDdMmYyyy = (d: Date) => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+    const to = new Date(today);
+    // Día de creación cuenta como día 1 ⇒ sumar (days - 1)
+    to.setDate(today.getDate() + (days - 1));
+    setContactData(prev => ({
+      ...prev,
+      validity: {
+        days,
+        from: toDdMmYyyy(today),
+        to: toDdMmYyyy(to)
+      }
+    }));
   };
 
   // Validar campo específico
@@ -451,6 +492,49 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
                     }}
                   />
                   {errors.cliente.email && <div className="error-message">{errors.cliente.email}</div>}
+                </div>
+
+                {/* Vigencia (ancho completo) */}
+                <div className="input-group">
+                  <label className="input-label">Vigencia</label>
+                  <div className="input-suffix-wrap">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="\\d*"
+                      className="form-input"
+                      placeholder="7"
+                      value={contactData.validity?.days ? String(contactData.validity.days) : ''}
+                      onChange={(e) => {
+                        const onlyNums = e.target.value.replace(/\D/g, '');
+                        const daysNum = onlyNums ? parseInt(onlyNums, 10) : 0;
+                        recalcValidityDates(daysNum);
+                      }}
+                    />
+                    <span className="input-suffix">días</span>
+                  </div>
+                </div>
+
+                {/* Fechas (una sola fila) */}
+                <div style={{ marginTop: '12px' }} className="input-grid two-cols">
+                  <div>
+                    <label className="input-label">Desde</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={contactData.validity?.from || ''}
+                      readOnly
+                    />
+                  </div>
+                  <div>
+                    <label className="input-label">Hasta</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={contactData.validity?.to || ''}
+                      readOnly
+                    />
+                  </div>
                 </div>
               </div>
 

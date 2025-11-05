@@ -53,5 +53,6 @@ declare global {
     view3D: () => void;
     toggleGrid: () => void;
     loteClickHandler?: any;
+    setTimeOfDay?: (hour: number) => void;
   }
 }
