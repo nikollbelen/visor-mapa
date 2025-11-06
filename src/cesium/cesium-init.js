@@ -93,7 +93,7 @@ let minArea = 0;
 // Load custom map image
 try {
   viewer.imageryLayers.addImageryProvider(
-    await window.Cesium.IonImageryProvider.fromAssetId(4016786)
+    await window.Cesium.IonImageryProvider.fromAssetId(4025553)
   );
 } catch (error) {
   console.error("❌ Error loading map image:", error);
@@ -174,7 +174,7 @@ async function loadLotesData() {
     // Extract all polygon positions for flyToView
     lotesPositions = extractLotesPositions(lotesData);
     // Agregar modelo 3D centrado usando el contorno del proyecto
-    addTreeModelAtCenter();
+    //addTreeModelAtCenter();
 
     // Process and format lot data once
     const feats = lotesData.features || [];
@@ -636,7 +636,7 @@ function setupLoteInteractions() {
               entity.polygon.material = vendido.withAlpha(0.5);
             }
           } else {
-            entity.polygon.material = modeSelected.withAlpha(0);
+            entity.polygon.material = modeSelected.withAlpha(0.1);
           }
           viewer.scene.requestRender();
         }
