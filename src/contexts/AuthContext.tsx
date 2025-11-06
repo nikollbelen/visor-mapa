@@ -32,6 +32,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
+  tokenLogin: (tempToken: string) => Promise<boolean>;
   logout: () => void;
   mustChangePassword: boolean;
 }
@@ -48,37 +49,59 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [mustChangePassword, setMustChangePassword] = useState(false);
 
-  // Cargar datos del localStorage al inicializar
+  // Inicialización: si viene ?token= en la URL, iniciar sesión con token temporal.
+  // Si no hay token en URL, restaurar desde localStorage.
   useEffect(() => {
-    const savedToken = localStorage.getItem('auth_token');
-    const savedUser = localStorage.getItem('auth_user');
-    const savedMustChangePassword = localStorage.getItem('must_change_password');
-
-    if (savedToken && savedUser) {
+    const initAuth = async () => {
       try {
-        setToken(savedToken);
-        setUser(JSON.parse(savedUser));
-        setMustChangePassword(savedMustChangePassword === 'true');
-      } catch (error) {
-        console.error('Error parsing saved auth data:', error);
-        // Limpiar datos corruptos
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('auth_user');
-        localStorage.removeItem('must_change_password');
+        const url = new URL(window.location.href);
+        const tempToken = url.searchParams.get('token');
+
+        if (tempToken) {
+          const success = await tokenLogin(tempToken);
+          // Limpiar el query param de la URL por seguridad/UX
+          url.searchParams.delete('token');
+          window.history.replaceState({}, document.title, url.toString());
+          if (success) {
+            setIsLoading(false);
+            return;
+          }
+          // Si falla, continuar intentando restaurar desde storage
+        }
+
+        const savedToken = localStorage.getItem('auth_token');
+        const savedUser = localStorage.getItem('auth_user');
+        const savedMustChangePassword = localStorage.getItem('must_change_password');
+
+        if (savedToken && savedUser) {
+          try {
+            setToken(savedToken);
+            setUser(JSON.parse(savedUser));
+            setMustChangePassword(savedMustChangePassword === 'true');
+          } catch (error) {
+            console.error('Error parsing saved auth data:', error);
+            // Limpiar datos corruptos
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('auth_user');
+            localStorage.removeItem('must_change_password');
+          }
+        }
+      } finally {
+        setIsLoading(false);
       }
-    }
-    setIsLoading(false);
+    };
+
+    initAuth();
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
-      const response = await fetch(`${apiBaseUrl}/users/login`, {
+      const normalizedBase = apiBaseUrl?.replace(/\/$/, '') || '';
+      const response = await fetch(`${normalizedBase}/users/login`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'ngrok-skip-browser-warning': 'true'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ email, password })
       });
@@ -112,6 +135,65 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const tokenLogin = async (tempToken: string): Promise<boolean> => {
+    try {
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+      const normalizedBase = apiBaseUrl?.replace(/\/$/, '') || '';
+      const pathsToTry = [
+        '/users/token-login',
+        '/users/token-login/',
+        '/auth/token-login',
+        '/auth/token-login/'
+      ];
+
+      let lastError: any = null;
+      for (const path of pathsToTry) {
+        try {
+          const response = await fetch(`${normalizedBase}${path}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ temp_token: tempToken })
+          });
+
+          if (!response.ok) {
+            lastError = new Error(`HTTP error! status: ${response.status}`);
+            // Si es 405 en variante sin barra, reintentaremos con la siguiente variante
+            continue;
+          }
+
+          const data: AuthResponse = await response.json();
+
+          if (data.success && data.data.access_token) {
+            const { access_token, user, must_change_password } = data.data;
+
+            setToken(access_token);
+            setUser(user);
+            setMustChangePassword(must_change_password);
+
+            localStorage.setItem('auth_token', access_token);
+            localStorage.setItem('auth_user', JSON.stringify(user));
+            localStorage.setItem('must_change_password', must_change_password.toString());
+
+            return true;
+          } else {
+            lastError = new Error(data.message || 'Token login failed');
+            continue;
+          }
+        } catch (innerErr) {
+          lastError = innerErr;
+        }
+      }
+
+      if (lastError) throw lastError;
+      return false;
+    } catch (error) {
+      console.error('Token login error:', error);
+      return false;
+    }
+  };
+
   const logout = () => {
     // Limpiar estado
     setUser(null);
@@ -130,6 +212,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isAuthenticated: !!user && !!token,
     isLoading,
     login,
+    tokenLogin,
     logout,
     mustChangePassword
   };
