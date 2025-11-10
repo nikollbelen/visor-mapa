@@ -360,7 +360,7 @@ function AppContent() {
       )}
 
       {/* Control de hora del día - siempre visible */}
-      <TimeOfDayControl isVisible={true} />
+      <TimeOfDayControl isVisible={false} />
     </>
   );
 }

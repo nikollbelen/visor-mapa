@@ -490,6 +490,11 @@
   border: 1px solid #FBE049;
 }
 
+.lot-card-status.negociacion {
+  background: rgba(255, 165, 0, 0.2);
+  border: 1px solid #FFA500;
+}
+
 .lot-card-status.vendido {
   background: rgba(251, 73, 73, 0.2);
   border: 1px solid #FB4949;

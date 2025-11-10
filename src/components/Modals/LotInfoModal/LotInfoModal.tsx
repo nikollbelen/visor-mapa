@@ -188,6 +188,34 @@ const LotInfoModal = ({
         id: loteData.id,
       }
     : defaultLotData;
+  const normalizedLotStatus = (lotData.status || "").toLowerCase();
+  const statusColorConfig: Record<string, { background: string; border: string }> = {
+    disponible: {
+      background: "rgba(29, 183, 121, 0.2)",
+      border: "#1DB779",
+    },
+    reservado: {
+      background: "rgba(251, 224, 73, 0.2)",
+      border: "#FBE049",
+    },
+    negociacion: {
+      background: "rgba(255, 165, 0, 0.2)",
+      border: "#FFA500",
+    },
+    vendido: {
+      background: "rgba(251, 73, 73, 0.2)",
+      border: "#FB4949",
+    },
+  };
+  const statusColors = statusColorConfig[normalizedLotStatus] || statusColorConfig.vendido;
+  const statusDisplayMap: Record<string, string> = {
+    disponible: "Disponible",
+    reservado: "Reservado",
+    negociacion: "Negociación",
+    vendido: "Vendido",
+  };
+  const statusLabel =
+    statusDisplayMap[normalizedLotStatus] || (typeof lotData.status === "string" ? lotData.status : "Vendido");
 
   // Constantes para la API de cotizaciones
   const BASE_API = import.meta.env.VITE_API_BASE_URL;
@@ -1895,22 +1923,14 @@ const LotInfoModal = ({
             <div
               className="lot-status-badge"
               style={{ 
-                backgroundColor: lotData.status === 'disponible' 
-                    ? 'rgba(29, 183, 121, 0.2)' 
-                    : lotData.status === 'reservado' 
-                        ? 'rgba(251, 224, 73, 0.2)' 
-                        : 'rgba(251, 73, 73, 0.2)',
-                borderColor: lotData.status === 'disponible' 
-                    ? '#1DB779' 
-                    : lotData.status === 'reservado' 
-                        ? '#FBE049' 
-                        : '#FB4949', 
+                backgroundColor: statusColors.background,
+                borderColor: statusColors.border,
                 borderStyle: 'solid', 
                 borderWidth: '1px' 
             }}
               id="modalStatus"
             >
-              {lotData.status}
+              {statusLabel}
             </div>
           </div>
 

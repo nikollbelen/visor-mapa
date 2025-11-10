@@ -374,6 +374,14 @@ const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => 
                 Reservado
               </button>
               <button 
+                className={`status-btn ${status === 'negociacion' ? 'active' : ''}`}
+                data-status="negociacion"
+                onClick={() => handleStatusChange('negociacion')}
+                key={`negociacion-${status}`}
+              >
+                Negociación
+              </button>
+              <button 
                 className={`status-btn ${status === 'disponible' ? 'active' : ''}`}
                 data-status="disponible"
                 onClick={() => handleStatusChange('disponible')}

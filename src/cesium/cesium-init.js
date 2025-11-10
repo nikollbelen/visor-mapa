@@ -83,7 +83,39 @@ function getLabelOutlineWidth() {
 const disponible = window.Cesium.Color.fromCssColorString("#00BA13");
 const reservado = window.Cesium.Color.fromCssColorString("#F5E200");
 const vendido = window.Cesium.Color.fromCssColorString("#D11F00");
+const negociacion = window.Cesium.Color.fromCssColorString("#FFA500");
 const modeSelected = window.Cesium.Color.fromCssColorString("#FFFFFF");
+
+function getStatusColor(status) {
+  const normalizedStatus = (status || "").toString().toLowerCase();
+  switch (normalizedStatus) {
+    case "reservado":
+      return reservado;
+    case "vendido":
+      return vendido;
+    case "negociacion":
+      return negociacion;
+    case "disponible":
+    default:
+      return disponible;
+  }
+}
+
+function getStatusLabel(status) {
+  const normalizedStatus = (status || "").toString().toLowerCase();
+  switch (normalizedStatus) {
+    case "disponible":
+      return "Disponible";
+    case "reservado":
+      return "Reservado";
+    case "negociacion":
+      return "Negociación";
+    case "vendido":
+      return "Vendido";
+    default:
+      return typeof status === "string" ? status : "";
+  }
+}
 
 let maxPrice = 0;
 let maxArea = 0;
@@ -417,14 +449,12 @@ async function loadLotesData() {
         e.polygon.disableDepthTestDistance = 0; // Los polígonos respetan la profundidad para que los labels estén por encima
 
         // Assign material according to status
-        let baseMaterial = disponible; // Default material
-        if (e.properties.estado.getValue() === "disponible") {
-          baseMaterial = disponible.withAlpha(0.5);
-        } else if (e.properties.estado.getValue() === "reservado") {
-          baseMaterial = reservado.withAlpha(0.5);
-        } else if (e.properties.estado.getValue() === "vendido") {
-          baseMaterial = vendido.withAlpha(0.5);
-        }
+        const estadoProp = e.properties?.estado;
+        const estadoValue =
+          typeof estadoProp?.getValue === "function"
+            ? estadoProp.getValue()
+            : estadoProp;
+        const baseMaterial = getStatusColor(estadoValue).withAlpha(0.5);
 
         // Assign the material and save the base material for restoration
         e.polygon.material = baseMaterial;
@@ -628,13 +658,12 @@ function setupLoteInteractions() {
         if (highlighted !== entity && entity !== selected) {
           highlighted = entity;
           if (btnGrid.classList.contains("active")) {
-            if (entity.properties.estado.getValue() === "disponible") {
-              entity.polygon.material = disponible.withAlpha(0.5);
-            } else if (entity.properties.estado.getValue() === "reservado") {
-              entity.polygon.material = reservado.withAlpha(0.5);
-            } else if (entity.properties.estado.getValue() === "vendido") {
-              entity.polygon.material = vendido.withAlpha(0.5);
-            }
+            const estadoProp = entity.properties?.estado;
+            const estadoValue =
+              typeof estadoProp?.getValue === "function"
+                ? estadoProp.getValue()
+                : estadoProp;
+            entity.polygon.material = getStatusColor(estadoValue).withAlpha(0.5);
           } else {
             entity.polygon.material = modeSelected.withAlpha(0.1);
           }
@@ -677,13 +706,12 @@ function setupLoteInteractions() {
     selectedOriginalMaterial = entity._baseMaterial || entity.polygon.material;
     
     if (btnGrid.classList.contains("active")) {
-      if (entity.properties.estado.getValue() === "disponible") {
-        entity.polygon.material = disponible.withAlpha(0.5);
-      } else if (entity.properties.estado.getValue() === "reservado") {
-        entity.polygon.material = reservado.withAlpha(0.5);
-      } else if (entity.properties.estado.getValue() === "vendido") {
-        entity.polygon.material = vendido.withAlpha(0.5);
-      }
+    const estadoProp = entity.properties?.estado;
+    const estadoValue =
+      typeof estadoProp?.getValue === "function"
+        ? estadoProp.getValue()
+        : estadoProp;
+    entity.polygon.material = getStatusColor(estadoValue).withAlpha(0.5);
     } else {
       entity.polygon.material = modeSelected.withAlpha(0);
     }
@@ -1353,9 +1381,9 @@ function renderLotCards(lots) {
     card.innerHTML = `
               <div class="lot-card-header">${lot.number}</div>
               <div class="lot-card-separator"></div>
-              <div class="lot-card-status ${lot.status}">${
-                lot.status.charAt(0).toUpperCase() + lot.status.slice(1)
-              }</div>
+              <div class="lot-card-status ${lot.status}">${getStatusLabel(
+                lot.status
+              )}</div>
               <div class="lot-card-details">
                 <span class="lot-card-label">Precio</span>
                 <span class="lot-card-value">$ ${lot.price.toLocaleString()}</span>
@@ -2028,13 +2056,12 @@ function toggleGrid() {
     }
 
     if (btnGrid.classList.contains("active")) {
-      if (e.properties.estado.getValue() === "disponible") {
-        e._baseMaterial = disponible.withAlpha(0.5);
-      } else if (e.properties.estado.getValue() === "reservado") {
-        e._baseMaterial = reservado.withAlpha(0.5);
-      } else if (e.properties.estado.getValue() === "vendido") {
-        e._baseMaterial = vendido.withAlpha(0.5);
-      }
+      const estadoProp = e.properties?.estado;
+      const estadoValue =
+        typeof estadoProp?.getValue === "function"
+          ? estadoProp.getValue()
+          : estadoProp;
+      e._baseMaterial = getStatusColor(estadoValue).withAlpha(0.5);
       if (e !== selected) {
         e.polygon.material = e._baseMaterial;
       }
