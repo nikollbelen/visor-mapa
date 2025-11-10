@@ -141,7 +141,7 @@ async function loadLotesData() {
     try {
       const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
       const projectId = import.meta.env.VITE_PROJECT_ID;
-      const apiUrl = `${apiBaseUrl}/lots/project/${projectId}`;
+      const apiUrl = `${apiBaseUrl}/lots/project/${projectId}?limit=1500`;
       
       const apiResp = await fetch(apiUrl, { 
         method: "GET",
