@@ -113,12 +113,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, []);
 
-  // Función para validar un token con el servidor (legacy, manteniendo para compatibilidad)
-  const validateToken = useCallback(async (tokenToValidate: string): Promise<boolean> => {
-    const result = await checkAuthStatus(tokenToValidate);
-    return result.isValid;
-  }, [checkAuthStatus]);
-
   // Función auxiliar para verificar si un token tiene un formato válido
   const isValidTokenFormat = (token: string | null): boolean => {
     if (!token || typeof token !== 'string') {
@@ -409,7 +403,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     if (!token) return;
 
-    let syncTimeout: NodeJS.Timeout | null = null;
+    let syncTimeout: ReturnType<typeof setTimeout> | null = null;
     let lastSyncTime = 0;
     const SYNC_COOLDOWN = 10000; // No sincronizar más de una vez cada 10 segundos
 
@@ -478,7 +472,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     if (!token) return;
 
-    let inactivityTimer: NodeJS.Timeout | null = null;
+    let inactivityTimer: ReturnType<typeof setTimeout> | null = null;
     const INACTIVITY_THRESHOLD = 5 * 60 * 1000; // 5 minutos de inactividad
 
     const resetInactivityTimer = () => {
@@ -497,8 +491,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             });
           }
           // Remover listener después de usarlo
-          document.removeEventListener('click', syncOnNextInteraction, { once: true });
-          document.removeEventListener('keydown', syncOnNextInteraction, { once: true });
+          document.removeEventListener('click', syncOnNextInteraction);
+          document.removeEventListener('keydown', syncOnNextInteraction);
         };
 
         document.addEventListener('click', syncOnNextInteraction, { once: true });
