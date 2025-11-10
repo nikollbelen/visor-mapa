@@ -133,6 +133,38 @@ const LotInfoModal = ({
   };
 
   // Usar datos del lote si están disponibles, sino usar datos por defecto
+
+  useEffect(() => {
+    // Habilitar funcionalidades solo cuando los inputs requeridos estén completos
+    let enabled = true;
+    // Debe existir un cronograma generado
+    if (!schedule || schedule.length === 0) enabled = false;
+    // Si no es contado, validar fecha inicial, número de cuotas y errores de fecha
+    if (enabled && paymentMethod !== "contado") {
+      if (!firstPaymentDate || !!dateError) enabled = false;
+      if (numberOfInstallments <= 0) enabled = false;
+    }
+    // Validar fechas para Separación si está activa (>0%)
+    if (enabled && separation?.enabled && separation.percentage > 0) {
+      const sep = schedule.find((s) => s.item === "Separación");
+      if (!sep || !sep.date) enabled = false;
+    }
+    // Validar fecha para Inicial si aplica (>0%)
+    if (enabled && initial?.percentage > 0) {
+      const ini = schedule.find((s) => s.item === "Inicial");
+      if (!ini || !ini.date) enabled = false;
+    }
+    setFunctionalitiesEnabled(enabled);
+  }, [
+    schedule,
+    paymentMethod,
+    firstPaymentDate,
+    dateError,
+    numberOfInstallments,
+    separation?.enabled,
+    separation?.percentage,
+    initial?.percentage
+  ]);
   const lotData = loteData
     ? {
         lot: loteData.direccion || "Lote sin identificar",
@@ -159,8 +191,8 @@ const LotInfoModal = ({
 
   // Constantes para la API de cotizaciones
   const BASE_API = import.meta.env.VITE_API_BASE_URL;
-  const PROJECT_ID = import.meta.env.VITE_PROJECT_ID || '6904f3e87d0fa4e90586cdf9'; // ID del proyecto Mikonos
-  const LOT_ID = loteData?.id || '68f65a027449019f373b0955'; // ID del lote actual desde la API
+  const PROJECT_ID = import.meta.env.VITE_PROJECT_ID; // ID del proyecto Mikonos
+  const LOT_ID = loteData?.id; // ID del lote actual desde la API
 
   const handleClose = () => {
     setShowQuotation(false); // Reset to lot info when closing
@@ -799,7 +831,6 @@ const LotInfoModal = ({
     // Si no hay cuotas editadas o son equivalentes, regenerar todo
     calculateSchedule();
     setNeedsUpdate(false);
-    setFunctionalitiesEnabled(true);
   };
 
   const updateSchedule = () => {
@@ -820,7 +851,6 @@ const LotInfoModal = ({
       // Los valores editados se mantienen sin recalcular
     }
     setNeedsUpdate(false);
-    setFunctionalitiesEnabled(true);
   };
 
   const syncSeparationAndInitialFromSchedule = () => {
@@ -1139,7 +1169,6 @@ const LotInfoModal = ({
 
     const lotInfo = [
       { label: 'Lote:', value: lotData.lot },
-      { label: 'Estado:', value: lotData.status },
       { label: 'Precio:', value: formatPrice(lotData.price) },
       { label: 'Fecha de Generación:', value: new Date().toLocaleDateString() }
     ];
@@ -1631,10 +1660,6 @@ const LotInfoModal = ({
               <div>${lotData.lot}</div>
             </div>
             <div class="info-item">
-              <div class="info-label">Estado:</div>
-              <div>${lotData.status}</div>
-            </div>
-            <div class="info-item">
               <div class="info-label">Precio:</div>
               <div>${formatPrice(lotData.price)}</div>
             </div>
@@ -1811,66 +1836,16 @@ const LotInfoModal = ({
       }
         
       case "email": {
-        try {
-          // Si está logueado, guardar en BD antes de enviar
-          if (isLoggedIn) {
-            try {
-              await saveQuotationToAPI(contactData);
-            } catch (error) {
-              console.error('Error al guardar cotización en BD:', error);
-              // Continuar con el envío aunque falle el guardado
-            }
+        if (isLoggedIn) {
+          try {
+            await saveQuotationToAPI(contactData);
+          } catch (error) {
+            console.error('Error al guardar cotización en BD:', error);
+            // Continuar con el flujo aunque falle el guardado
           }
-          
-          // Generar el PDF
-          const pdfBlob = await generateDocument(contactData, 'pdf');
-          const url = URL.createObjectURL(pdfBlob);
-          
-          // Crear enlace de email con el PDF adjunto
-          const emailData = {
-            to: contactData.cliente.email,
-            subject: `Cotización - ${lotData.lot}`,
-            body: `Estimado/a ${contactData.cliente.nombre},\n\nAdjunto la cotización del lote ${lotData.lot}.${userState ? `\n\nSaludos,\n${contactData.vendedor?.full_name || ''}` : '\n\nSaludos'}`
-          };
-          
-          // Crear enlace de email
-          const emailUrl = `mailto:${emailData.to}?subject=${encodeURIComponent(emailData.subject)}&body=${encodeURIComponent(emailData.body)}`;
-          window.open(emailUrl);
-          
-          // También descargar el archivo PDF localmente
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = getFileName(contactData, 'Cotizacion', 'pdf');
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-        } catch (error) {
-          console.error('Error generando PDF para email:', error);
-          // Fallback a HTML si falla la generación de PDF
-          const htmlBlob = await generateDocument(contactData, 'html');
-          const url = URL.createObjectURL(htmlBlob);
-          
-          // Crear enlace de email con el HTML adjunto
-          const emailData = {
-            to: contactData.cliente.email,
-            subject: `Cotización - ${lotData.lot}`,
-            body: `Estimado/a ${contactData.cliente.nombre},\n\nAdjunto la cotización del lote ${lotData.lot}.${userState ? `\n\nSaludos,\n${contactData.vendedor?.full_name || ''}` : '\n\nSaludos'}`
-          };
-          
-          // Crear enlace de email
-          const emailUrl = `mailto:${emailData.to}?subject=${encodeURIComponent(emailData.subject)}&body=${encodeURIComponent(emailData.body)}`;
-          window.open(emailUrl);
-          
-          // También descargar el archivo HTML localmente
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = getFileName(contactData, 'Cotizacion', 'html');
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
         }
+
+        alert('Enviado con éxito');
         break;
       }
     }

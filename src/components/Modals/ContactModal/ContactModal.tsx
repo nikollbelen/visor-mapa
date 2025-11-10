@@ -321,7 +321,7 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
     switch (type) {
       case "print": return "Imprimir";
       case "save": return "Guardar PDF";
-      case "email": return "Copiar datos del email";
+      case "email": return "Enviar";
       default: return "Enviar";
     }
   };
