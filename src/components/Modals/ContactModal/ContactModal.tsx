@@ -7,6 +7,7 @@ interface ContactModalProps {
   onClose: () => void;
   onSubmit: (data: ContactData) => void;
   currentUser?: {id: string; full_name?: string; email: string} | null;
+  quotationCode?: string; // Código de cotización para usar como nombre de archivo
 }
 
 interface ContactData {
@@ -23,7 +24,7 @@ interface SellerData {
   email: string;
 }
 
-const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: ContactModalProps) => {
+const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser, quotationCode }: ContactModalProps) => {
   const [contactData, setContactData] = useState<ContactData>({
     vendedorId: currentUser?.id || '',
     vendedor: currentUser ? { 
@@ -75,6 +76,28 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
     }
   }, [currentUser]);
 
+  // Actualizar fileName con el código de cotización cuando el modal se abre y hay código disponible
+  useEffect(() => {
+    if (isVisible && quotationCode && type === 'save') {
+      // Solo actualizar si fileName está vacío o no coincide con el código
+      setContactData(prev => {
+        if (prev.fileName === '' || prev.fileName !== quotationCode) {
+          return {
+            ...prev,
+            fileName: quotationCode
+          };
+        }
+        return prev;
+      });
+    } else if (!isVisible) {
+      // Resetear fileName cuando el modal se cierra
+      setContactData(prev => ({
+        ...prev,
+        fileName: ''
+      }));
+    }
+  }, [isVisible, quotationCode, type]);
+
   // Validar email
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -83,7 +106,7 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
 
   // Validar nombre (solo letras y espacios)
   const validateName = (name: string) => {
-    const nameRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/;
+    const nameRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s-]+$/;
     return nameRegex.test(name);
   };
 
@@ -95,14 +118,22 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
     return numbersOnly.length === requiredDigits;
   };
 
-  // Validar DNI (solo dígitos, 8 dígitos exactos)
-  const validateDni = (dni: string) => {
-    const dniRegex = /^\d{8}$/;
-    return dniRegex.test(dni);
+  const documentRules = [
+    { value: 'DNI', label: 'DNI', digits: 8 },
+    { value: 'RUC', label: 'RUC', digits: 11 },
+    { value: 'CE', label: 'Carné de Extranjería', digits: 12 },
+    { value: 'Pasaporte', label: 'Pasaporte', digits: 12 },
+  ] as const;
+
+  const getDocumentRule = (value?: string) => {
+    return documentRules.find(rule => rule.value === value) || documentRules[0];
   };
 
-  // Tipos de documento disponibles
-  const tiposDocumento = ['DNI', 'CE', 'Pasaporte', 'Carné Extranjería'];
+  const validateDocument = (documentNumber: string, tipoDocumento?: string) => {
+    const { digits } = getDocumentRule(tipoDocumento);
+    const regex = new RegExp(`^\\d{${digits}}$`);
+    return regex.test(documentNumber);
+  };
 
   // Códigos de país con sus limitantes específicas
   const codigosPais = [
@@ -168,8 +199,8 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
 
   // Limitar solo a letras (con espacios permitidos)
   const handleLetterInput = (value: string): string => {
-    // Remover números y caracteres especiales excepto espacios
-    return value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '');
+    // Remover números y caracteres especiales excepto espacios y guiones
+    return value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s-]/g, '');
   };
 
   // Auto-generar nombre de archivo
@@ -210,7 +241,13 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
   };
 
   // Validar campo específico
-  const validateField = (field: string, value: string, type: 'vendedorId' | 'cliente', countryCode?: string) => {
+  const validateField = (
+    field: string,
+    value: string,
+    type: 'vendedorId' | 'cliente',
+    options?: { countryCode?: string; documentType?: string }
+  ) => {
+    const { countryCode, documentType } = options || {};
     const newErrors: typeof errors = JSON.parse(JSON.stringify(errors));
     if (type === 'vendedorId') {
       newErrors.vendedorId = value ? '' : 'Ingrese el ID del vendedor';
@@ -224,8 +261,9 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
           ? 'El apellido solo puede contener letras y espacios'
           : '';
       } else if (field === 'dni') {
-        newErrors.cliente.dni = value && !validateDni(value)
-          ? 'Ingrese 8 dígitos'
+        const rule = getDocumentRule(documentType || contactData.cliente.tipoDocumento);
+        newErrors.cliente.dni = value && !validateDocument(value, rule.value)
+          ? `Ingrese ${rule.digits} dígitos`
           : '';
       } else if (field === 'email') {
         newErrors.cliente.email = value && !validateEmail(value)
@@ -403,14 +441,18 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
                       className="form-input"
                       value={contactData.cliente.tipoDocumento || 'DNI'}
                       onChange={(e) => {
+                        const newTipo = e.target.value;
+                        const rule = getDocumentRule(newTipo);
+                        const trimmedDocument = handleNumericInput(contactData.cliente.dni || '').slice(0, rule.digits);
                         setContactData({
                           ...contactData,
-                          cliente: { ...contactData.cliente, tipoDocumento: e.target.value }
+                          cliente: { ...contactData.cliente, tipoDocumento: newTipo, dni: trimmedDocument }
                         });
+                        validateField('dni', trimmedDocument, 'cliente', { documentType: newTipo });
                       }}
                     >
-                      {tiposDocumento.map(tipo => (
-                        <option key={tipo} value={tipo}>{tipo}</option>
+                      {documentRules.map(({ value, label }) => (
+                        <option key={value} value={value}>{label}</option>
                       ))}
                     </select>
                   </div>
@@ -419,16 +461,17 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
                     <input
                       type="text"
                       className={`form-input ${errors.cliente.dni ? 'error' : ''}`}
-                      placeholder="8 dígitos"
+                      placeholder={`${getDocumentRule(contactData.cliente.tipoDocumento).digits} dígitos`}
                       value={contactData.cliente.dni || ''}
-                      maxLength={8}
+                      maxLength={getDocumentRule(contactData.cliente.tipoDocumento).digits}
                       onChange={(e) => {
-                        const cleaned = handleNumericInput(e.target.value).slice(0, 8);
+                        const rule = getDocumentRule(contactData.cliente.tipoDocumento);
+                        const cleaned = handleNumericInput(e.target.value).slice(0, rule.digits);
                         setContactData({
                           ...contactData,
                           cliente: { ...contactData.cliente, dni: cleaned }
                         });
-                        validateField('dni', cleaned, 'cliente');
+                        validateField('dni', cleaned, 'cliente', { documentType: rule.value });
                       }}
                     />
                     {errors.cliente.dni && <div className="error-message">{errors.cliente.dni}</div>}
@@ -470,7 +513,7 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
                           ...contactData,
                           cliente: { ...contactData.cliente, telefono: formatted }
                         });
-                        validateField('telefono', formatted, 'cliente', countryCode);
+                        validateField('telefono', formatted, 'cliente', { countryCode });
                       }}
                     />
                     {errors.cliente.telefono && <div className="error-message">{errors.cliente.telefono}</div>}
@@ -544,12 +587,14 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
                   <input
                     type="text"
                     className="form-input"
-                    placeholder="Se genera automáticamente"
-                    value={contactData.fileName || generateFileName()}
-                    onChange={(e) => setContactData({
-                      ...contactData,
-                      fileName: e.target.value
-                    })}
+                    placeholder={quotationCode || "Se genera automáticamente"}
+                    value={contactData.fileName !== '' ? contactData.fileName : (quotationCode || generateFileName())}
+                    onChange={(e) => {
+                      setContactData({
+                        ...contactData,
+                        fileName: e.target.value
+                      });
+                    }}
                   />
                   <p style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
                     Puede editar el nombre antes de guardar
@@ -621,14 +666,18 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
                       className="form-input"
                       value={contactData.cliente.tipoDocumento || 'DNI'}
                       onChange={(e) => {
+                        const newTipo = e.target.value;
+                        const rule = getDocumentRule(newTipo);
+                        const trimmedDocument = handleNumericInput(contactData.cliente.dni || '').slice(0, rule.digits);
                         setContactData({
                           ...contactData,
-                          cliente: { ...contactData.cliente, tipoDocumento: e.target.value }
+                          cliente: { ...contactData.cliente, tipoDocumento: newTipo, dni: trimmedDocument }
                         });
+                        validateField('dni', trimmedDocument, 'cliente', { documentType: newTipo });
                       }}
                     >
-                      {tiposDocumento.map(tipo => (
-                        <option key={tipo} value={tipo}>{tipo}</option>
+                      {documentRules.map(({ value, label }) => (
+                        <option key={value} value={value}>{label}</option>
                       ))}
                     </select>
                   </div>
@@ -637,16 +686,17 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
                     <input
                       type="text"
                       className={`form-input ${errors.cliente.dni ? 'error' : ''}`}
-                      placeholder="8 dígitos"
+                      placeholder={`${getDocumentRule(contactData.cliente.tipoDocumento).digits} dígitos`}
                       value={contactData.cliente.dni || ''}
-                      maxLength={8}
+                      maxLength={getDocumentRule(contactData.cliente.tipoDocumento).digits}
                       onChange={(e) => {
-                        const cleaned = handleNumericInput(e.target.value).slice(0, 8);
+                        const rule = getDocumentRule(contactData.cliente.tipoDocumento);
+                        const cleaned = handleNumericInput(e.target.value).slice(0, rule.digits);
                         setContactData({
                           ...contactData,
                           cliente: { ...contactData.cliente, dni: cleaned }
                         });
-                        validateField('dni', cleaned, 'cliente');
+                        validateField('dni', cleaned, 'cliente', { documentType: rule.value });
                       }}
                     />
                     {errors.cliente.dni && <div className="error-message">{errors.cliente.dni}</div>}
@@ -688,7 +738,7 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser }: Conta
                           ...contactData,
                           cliente: { ...contactData.cliente, telefono: formatted }
                         });
-                        validateField('telefono', formatted, 'cliente', countryCode);
+                        validateField('telefono', formatted, 'cliente', { countryCode });
                       }}
                     />
                     {errors.cliente.telefono && <div className="error-message">{errors.cliente.telefono}</div>}

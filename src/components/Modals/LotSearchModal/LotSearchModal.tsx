@@ -358,7 +358,7 @@ const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => 
             <label className="filter-label">Estado</label>
             <div className="status-buttons" key={`status-buttons-${status}`}>
               <button 
-                className={`status-btn ${status === 'vendido' ? 'active' : ''}`}
+                className={`status-btn vendido ${status === 'vendido' ? 'active' : ''}`}
                 data-status="vendido"
                 onClick={() => handleStatusChange('vendido')}
                 key={`vendido-${status}`}
@@ -366,7 +366,7 @@ const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => 
                 Vendido
               </button>
               <button 
-                className={`status-btn ${status === 'reservado' ? 'active' : ''}`}
+                className={`status-btn reservado ${status === 'reservado' ? 'active' : ''}`}
                 data-status="reservado"
                 onClick={() => handleStatusChange('reservado')}
                 key={`reservado-${status}`}
@@ -374,7 +374,7 @@ const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => 
                 Reservado
               </button>
               <button 
-                className={`status-btn ${status === 'negociacion' ? 'active' : ''}`}
+                className={`status-btn negociacion ${status === 'negociacion' ? 'active' : ''}`}
                 data-status="negociacion"
                 onClick={() => handleStatusChange('negociacion')}
                 key={`negociacion-${status}`}
@@ -382,7 +382,7 @@ const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => 
                 Negociación
               </button>
               <button 
-                className={`status-btn ${status === 'disponible' ? 'active' : ''}`}
+                className={`status-btn disponible ${status === 'disponible' ? 'active' : ''}`}
                 data-status="disponible"
                 onClick={() => handleStatusChange('disponible')}
                 key={`disponible-${status}`}

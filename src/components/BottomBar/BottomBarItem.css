@@ -2,6 +2,13 @@
    BOTTOMBAR ITEM
    ======================================== */
 
+.bottombar-item-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .bottombar-icon-button {
   border: none;
   padding: 8px;
@@ -11,6 +18,7 @@
   justify-content: center;
   transition: all 1s ease;
   background: none;
+  position: relative;
 }
 
 .bottombar-icon-button:hover {
@@ -31,3 +39,54 @@
   width: 24px;
   height: 24px;
 }
+
+/* ========================================
+   TOOLTIP - Material UI Style
+   ======================================== */
+
+.bottombar-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) scale(0.8);
+  background-color: rgba(33, 33, 33, 0.9);
+  color: #ffffff;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 1000;
+  box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2),
+              0px 4px 8px rgba(0, 0, 0, 0.15);
+  transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: bottom center;
+  visibility: hidden;
+  /* Centrar perfectamente desde el centro del botón */
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.bottombar-tooltip.show {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+  visibility: visible;
+}
+
+/* Flecha del tooltip apuntando hacia abajo */
+.bottombar-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: rgba(33, 33, 33, 0.9);
+  pointer-events: none;
+}
+
+/* Las animaciones se manejan con transition en .bottombar-tooltip */
+/* El tooltip siempre se centra con el botón usando left: 50% y translateX(-50%) */

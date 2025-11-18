@@ -29,48 +29,39 @@ const LotInfoModal = ({
   const [discountAmount, setDiscountAmount] = useState(0);
   const [userState, setUserState] = useState(currentUser);
   const [discountPercentage, setDiscountPercentage] = useState(0);
-  const [sellers, setSellers] = useState<Array<{id: string; nombre: string; email: string; password: string; whatsapp: string}>>([]);
+  const [maxDiscount, setMaxDiscount] = useState<number | null>(null);
+  const [discountError, setDiscountError] = useState('');
+  const [quotationNotes, setQuotationNotes] = useState('');
 
-  // Cargar vendedores desde la API
   useEffect(() => {
     const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
-    const token = localStorage.getItem('auth_token');
-    
-    if (!token) {
-      console.warn('No hay token de autenticación para cargar vendedores');
-      return;
-    }
-    
-    fetch(`${apiBaseUrl}/users`, {
+    const projectId = import.meta.env.VITE_PROJECT_ID;
+    if (!apiBaseUrl || !projectId) return;
+    const controller = new AbortController();
+    fetch(`${apiBaseUrl}/settings/project/${projectId}`, {
+      method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'ngrok-skip-browser-warning': 'true'
-      }
+        'Accept': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+      },
+      signal: controller.signal
     })
       .then(res => res.json())
-      .then((apiData) => {
-        // Transformar los datos de la API al formato esperado
-        let sellersData = [];
-        
-        if (apiData.data && Array.isArray(apiData.data)) {
-          // Formato de la nueva API - filtrar solo usuarios con rol de vendedor/agente
-          sellersData = apiData.data
-            .filter((user: any) => user.role === 'agent' || user.role === 'seller' || user.role === 'vendedor')
-            .map((user: any) => ({
-              id: user.id,
-              nombre: user.full_name || user.name,
-              email: user.email,
-              password: '', // No necesitamos la contraseña
-              whatsapp: user.phone || '',
-            }));
+      .then((data) => {
+        const rawMax = data?.data?.max_discount;
+        const parsed = typeof rawMax === 'number' ? rawMax : parseFloat(rawMax);
+        if (!isNaN(parsed)) {
+          setMaxDiscount(parsed);
         }
-        
-        setSellers(sellersData);
+        if (data?.data?.quotation_notes) {
+          setQuotationNotes(data.data.quotation_notes);
+        }
       })
-      .catch((error) => {
-        console.error('Error cargando vendedores:', error);
-        setSellers([]);
+      .catch(() => {
+        setMaxDiscount(null);
+        setQuotationNotes('');
       });
+    return () => controller.abort();
   }, []);
 
   // Sincronizar el estado del usuario cuando cambie la prop
@@ -81,6 +72,28 @@ const LotInfoModal = ({
   // Debug: Log user state changes
   useEffect(() => {
   }, [userState]);
+
+  const formatLotLabel = (direccion?: string, phase?: string) => {
+    const normalizedPhase = (phase || '').toString().replace(/^\s*etapa\s+/i, '').trim();
+    const stageText = normalizedPhase ? `Etapa ${normalizedPhase}` : '';
+  
+    if (!direccion) {
+      return stageText ? `${stageText} - Lote sin identificar` : 'Lote sin identificar';
+    }
+  
+    const match = direccion.match(/Mz\.\s*([A-Za-z0-9]+)\s*-\s*(?:Lote|Lt\.?)\s*(\d+)/i);
+    let unitText: string;
+  
+    if (match) {
+      const manzana = match[1].toUpperCase();
+      const lote = match[2];
+      unitText = `Mz. ${manzana} Lt. ${lote}`;
+    } else {
+      unitText = direccion.replace(/Lote/gi, 'Lt.');
+    }
+  
+    return stageText ? `${stageText} - ${unitText}` : unitText;
+  };
 
   // Payment schedule states
   const [paymentMethod, setPaymentMethod] = useState("credito_directo");
@@ -114,11 +127,16 @@ const LotInfoModal = ({
   const [modalType, setModalType] = useState<"print" | "save" | "email">("print");
   const [functionalitiesEnabled, setFunctionalitiesEnabled] = useState(false);
   
+  // Estados para rastrear si ya se guardó y los datos guardados
+  const [hasBeenSaved, setHasBeenSaved] = useState(false);
+  const [lastSavedData, setLastSavedData] = useState<any>(null);
+  const [quotationCodeForModal, setQuotationCodeForModal] = useState<string | undefined>(undefined);
+  
   // Estados para manejar el focus de inputs formateados
   const [focusedInputs, setFocusedInputs] = useState<{[key: string]: boolean}>({});
   // Datos por defecto si no hay datos del lote
   const defaultLotData = {
-    lot: "Lote sin identificar",
+    lot: formatLotLabel("Lote sin identificar", "1"),
     status: "Disponible",
     price: "$0.00",
     area: "0.00 m²",
@@ -167,7 +185,7 @@ const LotInfoModal = ({
   ]);
   const lotData = loteData
     ? {
-        lot: loteData.direccion || "Lote sin identificar",
+        lot: formatLotLabel(loteData.direccion, loteData.phase || "1"),
         status: loteData.estado || "Disponible",
         price: loteData.precio
           ? (() => {
@@ -224,6 +242,10 @@ const LotInfoModal = ({
 
   const handleClose = () => {
     setShowQuotation(false); // Reset to lot info when closing
+    // Resetear estados de guardado cuando se cierra el modal
+    setHasBeenSaved(false);
+    setLastSavedData(null);
+    setQuotationCodeForModal(undefined);
     onClose?.();
   };
 
@@ -334,24 +356,149 @@ const LotInfoModal = ({
       const monthNum = parseInt(month);
       const yearNum = parseInt(year);
       
-      if (dayNum >= 1 && dayNum <= 31 && monthNum >= 1 && monthNum <= 12 && yearNum >= 2000) {
-        // Validación adicional: no permitir fechas anteriores a hoy
-        const candidate = new Date(yearNum, monthNum - 1, dayNum);
-        if (isNaN(candidate.getTime())) {
-          return '';
-        }
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        candidate.setHours(0, 0, 0, 0);
-        if (candidate < today) {
-          return '';
-        }
-        return `${day}/${month}/${year}`;
+    if (dayNum >= 1 && dayNum <= 31 && monthNum >= 1 && monthNum <= 12 && yearNum >= 2000) {
+      const candidate = new Date(yearNum, monthNum - 1, dayNum);
+      if (isNaN(candidate.getTime())) {
+        return '';
       }
+      return `${day}/${month}/${year}`;
+    }
     }
     
     // Si no se puede formatear correctamente, retornar vacío para invalidar la fecha
     return '';
+  };
+
+  const toDateInputValue = (displayDate?: string | null): string => {
+    if (!displayDate) return '';
+    const [day, month, year] = displayDate.split('/');
+    if (!day || !month || !year) return '';
+    const paddedDay = day.padStart(2, '0');
+    const paddedMonth = month.padStart(2, '0');
+    const paddedYear = year.padStart(4, '0');
+    return `${paddedYear}-${paddedMonth}-${paddedDay}`;
+  };
+
+  const fromDateInputValue = (inputValue?: string | null): string => {
+    if (!inputValue) return '';
+    const [year, month, day] = inputValue.split('-');
+    if (!year || !month || !day) return '';
+    const paddedDay = day.padStart(2, '0');
+    const paddedMonth = month.padStart(2, '0');
+    return `${paddedDay}/${paddedMonth}/${year}`;
+  };
+
+  // Función para obtener la fecha de hoy en formato yyyy-MM-dd para el atributo min
+  const getTodayDateInput = (): string => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Función para validar fecha según el tipo de item (Separación/Inicial vs Cuotas)
+  const validateScheduleDate = (
+    dateString: string,
+    itemName: string
+  ): { isValid: boolean; error?: string } => {
+    if (!dateString) {
+      return { isValid: false, error: "Fecha requerida" };
+    }
+
+    try {
+      const parsedDate = parse(dateString, "dd/MM/yyyy", new Date());
+      if (!isValid(parsedDate)) {
+        return {
+          isValid: false,
+          error: "Formato de fecha inválido (dd/mm/aaaa)",
+        };
+      }
+
+      const today = startOfDay(new Date());
+      if (isBefore(parsedDate, today)) {
+        return { isValid: false, error: "La fecha debe ser hoy o en el futuro" };
+      }
+
+      // Si no hay fecha de primer pago, solo validar que sea hoy o futuro
+      if (!firstPaymentDate) {
+        return { isValid: true };
+      }
+
+      const firstPaymentParsed = parse(firstPaymentDate, "dd/MM/yyyy", new Date());
+      if (!isValid(firstPaymentParsed)) {
+        return { isValid: true }; // Si la fecha de primer pago es inválida, permitir cualquier fecha válida
+      }
+
+      const isSeparacionOrInicial = itemName === "Separación" || itemName === "Inicial";
+      const isCuota1 = itemName === "Cuota 1";
+      const isCuota = itemName.startsWith("Cuota");
+
+      if (isSeparacionOrInicial) {
+        // Separación e Inicial deben ser ANTES de la fecha de primer pago
+        if (!isBefore(parsedDate, firstPaymentParsed)) {
+          return {
+            isValid: false,
+            error: `La fecha debe ser anterior a la fecha de primer pago (${firstPaymentDate})`,
+          };
+        }
+      } else if (isCuota1) {
+        // Cuota 1: puede ser cualquier fecha válida (hoy o futuro), se convertirá en la nueva referencia
+        // No necesita validación adicional más allá de que sea hoy o futuro
+        return { isValid: true };
+      } else if (isCuota) {
+        // Las cuotas 2, 3, etc. deben ser POSTERIORES o IGUALES a la fecha de primer pago
+        if (isBefore(parsedDate, firstPaymentParsed)) {
+          return {
+            isValid: false,
+            error: `La fecha debe ser posterior o igual a la fecha de primer pago (${firstPaymentDate})`,
+          };
+        }
+      }
+
+      return { isValid: true };
+    } catch {
+      return { isValid: false, error: "Error al validar la fecha" };
+    }
+  };
+
+  // Función para obtener el min/max según el tipo de item
+  const getDateInputMinMax = (itemName: string): { min?: string; max?: string } => {
+    const today = getTodayDateInput();
+    
+    if (!firstPaymentDate) {
+      return { min: today };
+    }
+
+    const firstPaymentInput = toDateInputValue(firstPaymentDate);
+    if (!firstPaymentInput) {
+      return { min: today };
+    }
+
+    const isSeparacionOrInicial = itemName === "Separación" || itemName === "Inicial";
+    const isCuota1 = itemName === "Cuota 1";
+    const isCuota = itemName.startsWith("Cuota");
+
+    if (isSeparacionOrInicial) {
+      // Separación e Inicial: máximo es un día antes de firstPaymentDate
+      const firstPaymentParsed = parse(firstPaymentDate, "dd/MM/yyyy", new Date());
+      if (isValid(firstPaymentParsed)) {
+        const maxDate = new Date(firstPaymentParsed);
+        maxDate.setDate(maxDate.getDate() - 1);
+        const year = maxDate.getFullYear();
+        const month = String(maxDate.getMonth() + 1).padStart(2, '0');
+        const day = String(maxDate.getDate()).padStart(2, '0');
+        return { min: today, max: `${year}-${month}-${day}` };
+      }
+    } else if (isCuota1) {
+      // Cuota 1: puede ser cualquier fecha desde hoy (se convertirá en la nueva referencia)
+      return { min: today };
+    } else if (isCuota) {
+      // Cuotas 2, 3, etc.: mínimo es firstPaymentDate
+      return { min: firstPaymentInput };
+    }
+
+    return { min: today };
   };
 
   const getFormattedValue = (value: number, type: 'usd' | 'percentage' | 'cuotas', inputId: string) => {
@@ -397,23 +544,55 @@ const LotInfoModal = ({
     }
   };
 
+  const getBasePrice = () => {
+    const price = loteData?.precio;
+    if (typeof price === 'number') return price;
+    const parsed = price ? parseFloat(price) : NaN;
+    return !isNaN(parsed) ? parsed : 445000;
+  };
+
+  const validateDiscountValue = (percentage: number) => {
+    if (percentage < 0) {
+      setDiscountError('El descuento no puede ser negativo');
+      return false;
+    }
+    if (maxDiscount !== null && percentage > maxDiscount) {
+      setDiscountError(`El descuento máximo permitido es ${maxDiscount}%`);
+      return false;
+    }
+    setDiscountError('');
+    return true;
+  };
+
+  const applyDiscountFromAmount = (amount: number) => {
+    const priceBase = getBasePrice();
+    const percentage = priceBase ? (amount / priceBase) * 100 : 0;
+    if (!validateDiscountValue(percentage)) return;
+    setDiscountAmount(amount);
+    setDiscountPercentage(percentage);
+    handleFieldChange("discount");
+  };
+
+  const applyDiscountFromPercentage = (percentage: number) => {
+    if (!validateDiscountValue(percentage)) return;
+    const priceBase = getBasePrice();
+    const amount = (percentage / 100) * priceBase;
+    setDiscountPercentage(percentage);
+    setDiscountAmount(amount);
+    handleFieldChange("discount");
+  };
+
   const handleDiscountChange = (
     e: React.ChangeEvent<HTMLInputElement>,
     type: "amount" | "percentage"
   ) => {
     if (type === "amount") {
       handleDecimalInput(e.target.value, 'discount-amount', (amount) => {
-        const percentage = (amount / (loteData?.precio || 445000)) * 100;
-        setDiscountAmount(amount);
-        setDiscountPercentage(percentage);
-        handleFieldChange("discount");
+        applyDiscountFromAmount(amount);
       });
     } else {
       handleDecimalInput(e.target.value, 'discount-percentage', (percentage) => {
-        const amount = (percentage / 100) * (loteData?.precio || 445000);
-        setDiscountAmount(amount);
-        setDiscountPercentage(percentage);
-        handleFieldChange("discount");
+        applyDiscountFromPercentage(percentage);
       });
     }
   };
@@ -1040,6 +1219,7 @@ const LotInfoModal = ({
   };
 
   const handleDateBlur = (value: string) => {
+    const trimmedValue = value.trim();
     // Formatear la fecha cuando se desenfoca
     const formattedDate = formatDateInput(value);
     setFirstPaymentDate(formattedDate);
@@ -1069,33 +1249,62 @@ const LotInfoModal = ({
         setCalculatedFinalDate("");
       }
     } else {
-      // Si no está completa, limpiar todo
-      setDateError("");
+      // Si no está completa, limpiar todo y mostrar mensaje descriptivo
+      if (!trimmedValue) {
+        setDateError("Fecha de inicio requerida");
+      } else {
+        setDateError("Ingrese una fecha válida en formato dd/mm/aaaa");
+      }
       setCalculatedFinalDate("");
     }
   };
 
-  const handleWhatsAppClick = () => {
-    // Seleccionar un vendedor aleatorio
-    if (sellers.length === 0) {
-      alert('No hay vendedores disponibles en este momento. Por favor, intente más tarde.');
-      return;
-    }
+  const handleWhatsAppClick = async () => {
+    try {
+      // Obtener un agente aleatorio desde la API
+      const response = await fetch(`${BASE_API}/users/random-agent/${PROJECT_ID}`, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
 
-    const randomIndex = Math.floor(Math.random() * sellers.length);
-    const selectedSeller = sellers[randomIndex];
-    
-    // Crear mensaje para WhatsApp
-    const loteInfo = lotData?.lot || 'N/A';
-    const message = `Hola ${selectedSeller.nombre}, me interesa obtener más información sobre el lote ${loteInfo}. Por favor, contácteme.`;
-    const encodedMessage = encodeURIComponent(message);
-    
-    // Usar el número de WhatsApp del vendedor seleccionado
-    const whatsappUrl = `https://wa.me/${selectedSeller.whatsapp}?text=${encodedMessage}`;
-  
-    
-    // Abrir WhatsApp en una nueva ventana
-    window.open(whatsappUrl, '_blank');
+      if (!response.ok) {
+        throw new Error('Error al obtener agente aleatorio');
+      }
+
+      const result = await response.json();
+      
+      if (!result.success || !result.data) {
+        alert('No hay agentes disponibles en este momento. Por favor, intente más tarde.');
+        return;
+      }
+
+      const agent = result.data;
+      
+      // Verificar que el agente tenga número de teléfono
+      if (!agent.phone) {
+        alert('El agente no tiene número de teléfono disponible.');
+        return;
+      }
+
+      // Crear mensaje para WhatsApp
+      const loteInfo = lotData?.lot || 'N/A';
+      const agentName = agent.full_name || 'agente';
+      const message = `Hola ${agentName}, me interesa obtener más información sobre el lote ${loteInfo}. Por favor, contácteme.`;
+      const encodedMessage = encodeURIComponent(message);
+      
+      // Limpiar el número de teléfono (remover espacios, guiones, etc.)
+      const cleanPhone = agent.phone.replace(/\D/g, '');
+      
+      // Usar el número de teléfono del agente
+      const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
+      
+      // Abrir WhatsApp en una nueva ventana
+      window.open(whatsappUrl, '_blank');
+    } catch (error) {
+      console.error('Error al obtener agente aleatorio:', error);
+      alert('Error al conectar con el servicio. Por favor, intente más tarde.');
+    }
   };
 
 
@@ -1137,6 +1346,15 @@ const LotInfoModal = ({
     const nombre = cliente?.nombre || '';
     const apellido = cliente?.apellido || '';
     return `${nombre} ${apellido}`.trim();
+  };
+
+  const formatClientDocument = (cliente: any): string => {
+    const type = cliente?.tipoDocumento || '';
+    const number = cliente?.dni || '';
+    if (!type && !number) return '';
+    if (!type) return number;
+    if (!number) return type;
+    return `${type}: ${number}`;
   };
 
   const formatAmount = (amount: number): string => {
@@ -1198,7 +1416,7 @@ const LotInfoModal = ({
     const lotInfo = [
       { label: 'Lote:', value: lotData.lot },
       { label: 'Precio:', value: formatPrice(lotData.price) },
-      { label: 'Fecha de Generación:', value: new Date().toLocaleDateString() }
+      { label: 'Fecha de cotización:', value: new Date().toLocaleDateString() }
     ];
 
     // Crear grid de 2 columnas
@@ -1242,7 +1460,9 @@ const LotInfoModal = ({
     if (userState) {
       // Calcular alturas para vendedor y cliente
       const vendedorHeight = contactData.vendedor?.email ? 20 : 12;
-      const clienteHeight = contactData.cliente?.telefono ? 27 : contactData.cliente?.email ? 20 : 12;
+      const hasClientDoc = !!formatClientDocument(contactData.cliente);
+      const clienteHeightBase = contactData.cliente?.telefono ? 27 : contactData.cliente?.email ? 20 : 12;
+      const clienteHeight = hasClientDoc ? clienteHeightBase + 6 : clienteHeightBase;
       const maxHeight = Math.max(vendedorHeight, clienteHeight);
 
       // VENDEDOR - Columna izquierda
@@ -1269,11 +1489,18 @@ const LotInfoModal = ({
       
       pdf.setFont('helvetica', 'normal');
       pdf.setTextColor(colors.text);
-      pdf.text(formatClientName(contactData.cliente), clienteX, yPosition + 8);
-      pdf.text(contactData.cliente?.email || '', clienteX, yPosition + 13);
+      let clientLineY = yPosition + 8;
+      pdf.text(formatClientName(contactData.cliente), clienteX, clientLineY);
+      clientLineY += 5;
+      if (formatClientDocument(contactData.cliente)) {
+        pdf.text(formatClientDocument(contactData.cliente), clienteX, clientLineY);
+        clientLineY += 5;
+      }
+      pdf.text(contactData.cliente?.email || '', clienteX, clientLineY);
+      clientLineY += 5;
       if (contactData.cliente?.telefono) {
         const code = contactData.cliente?.codigoPais || '+51';
-        pdf.text(formatPhone(contactData.cliente.telefono, code), clienteX, yPosition + 18);
+        pdf.text(formatPhone(contactData.cliente.telefono, code), clienteX, clientLineY);
       }
 
       yPosition += maxHeight + 10;
@@ -1292,6 +1519,21 @@ const LotInfoModal = ({
     pdf.line(20, yPosition, pageWidth - 20, yPosition);
     yPosition += 12;
 
+    const tableX = 20;
+    const tableWidth = pageWidth - 40;
+    const columnWidths = {
+      cuota: tableWidth * 0.15,        // ~25.5mm
+      fecha: tableWidth * 0.5,         // ~85mm
+      porcentaje: tableWidth * 0.175,  // ~29.75mm
+      monto: tableWidth * 0.175        // ~29.75mm
+    };
+    const columnCenters = {
+      cuota: tableX + columnWidths.cuota / 2,
+      fecha: tableX + columnWidths.cuota + columnWidths.fecha / 2,
+      porcentaje: tableX + columnWidths.cuota + columnWidths.fecha + columnWidths.porcentaje / 2,
+      monto: tableX + columnWidths.cuota + columnWidths.fecha + columnWidths.porcentaje + columnWidths.monto - 2
+    };
+
     // Encabezados de la tabla (como schedule-table th)
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(11);
@@ -1306,10 +1548,10 @@ const LotInfoModal = ({
     pdf.setLineWidth(0.5);
     pdf.rect(20, yPosition - 6, pageWidth - 40, 8);
     
-    pdf.text('Cuota', 22, yPosition);
-    pdf.text('Fecha de Vencimiento', 80, yPosition);
-    pdf.text('Porcentaje', 120, yPosition);
-    pdf.text('Monto', 160, yPosition);
+    pdf.text('Cuota', columnCenters.cuota, yPosition, { align: 'center' });
+    pdf.text('Fecha de Vencimiento', columnCenters.fecha, yPosition, { align: 'center' });
+    pdf.text('Porcentaje', columnCenters.porcentaje, yPosition, { align: 'center' });
+    pdf.text('Monto', columnCenters.monto, yPosition, { align: 'right' });
     yPosition += 6;
 
     // Filas de datos (como schedule-table td)
@@ -1330,10 +1572,10 @@ const LotInfoModal = ({
       pdf.rect(20, yPosition - 4, pageWidth - 40, 6);
 
       pdf.setTextColor(colors.text);
-      pdf.text(item.item, 22, yPosition);
-      pdf.text(item.date, 80, yPosition);
-      pdf.text(`${item.percentage.toFixed(2)}%`, 120, yPosition);
-      pdf.text(formatAmount(item.amount), 160, yPosition);
+      pdf.text(item.item, columnCenters.cuota, yPosition, { align: 'center' });
+      pdf.text(item.date, columnCenters.fecha, yPosition, { align: 'center' });
+      pdf.text(`${item.percentage.toFixed(2)}%`, columnCenters.porcentaje, yPosition, { align: 'center' });
+      pdf.text(formatAmount(item.amount), columnCenters.monto, yPosition, { align: 'right' });
       yPosition += 6;
       totalAmount += item.amount || 0;
     });
@@ -1349,9 +1591,9 @@ const LotInfoModal = ({
 
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(colors.text);
-    pdf.text('TOTAL', 22, yPosition + 2);
-    pdf.text('100%', 120, yPosition + 2);
-    pdf.text(formatAmount(totalAmount), 160, yPosition + 2);
+    pdf.text('TOTAL', columnCenters.cuota, yPosition + 2, { align: 'center' });
+    pdf.text('100%', columnCenters.porcentaje, yPosition + 2, { align: 'center' });
+    pdf.text(formatAmount(totalAmount), columnCenters.monto, yPosition + 2, { align: 'right' });
 
     // Nota de vigencia
     if (contactData?.validity?.days) {
@@ -1367,6 +1609,10 @@ const LotInfoModal = ({
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(10);
     pdf.setTextColor(colors.lightGray);
+    if (quotationNotes) {
+      pdf.text(quotationNotes, pageWidth / 2, yPosition - 5, { align: 'center' });
+      yPosition -= 5;
+    }
     pdf.text(`Documento generado el ${new Date().toLocaleString()}`, pageWidth / 2, yPosition, { align: 'center' });
     pdf.text('Sistema de Cotizaciones - Mikonos', pageWidth / 2, yPosition + 5, { align: 'center' });
 
@@ -1392,23 +1638,203 @@ const LotInfoModal = ({
     }
   };
 
+  // Función para capturar todos los datos actuales del estado
+  const captureCurrentData = (contactData: any) => {
+    return {
+      cliente: {
+        nombre: contactData.cliente?.nombre || '',
+        apellido: contactData.cliente?.apellido || '',
+        tipoDocumento: contactData.cliente?.tipoDocumento || '',
+        dni: contactData.cliente?.dni || '',
+        email: contactData.cliente?.email || '',
+        telefono: contactData.cliente?.telefono || '',
+        codigoPais: contactData.cliente?.codigoPais || '',
+      },
+      vendedor: {
+        id: contactData.vendedor?.id || '',
+        full_name: contactData.vendedor?.full_name || '',
+        email: contactData.vendedor?.email || '',
+      },
+      validity: {
+        days: contactData.validity?.days || 0,
+      },
+      schedule: schedule.map(item => ({
+        item: item.item || '',
+        date: item.date || '',
+        percentage: item.percentage || 0,
+        amount: item.amount || 0,
+      })),
+      discount: {
+        amount: discountAmount,
+        percentage: discountPercentage,
+      },
+      paymentMethod,
+      separation: {
+        amount: separation.amount,
+        percentage: separation.percentage,
+        enabled: separation.enabled,
+      },
+      initial: {
+        amount: initial.amount,
+        percentage: initial.percentage,
+      },
+      mortgageCredit: {
+        amount: mortgageCredit.amount,
+        percentage: mortgageCredit.percentage,
+      },
+      finalBalance: {
+        amount: finalBalance.amount,
+        percentage: finalBalance.percentage,
+        date: finalBalance.date,
+      },
+      numberOfInstallments,
+      equivalentInstallments,
+      firstPaymentDate,
+    };
+  };
+
+  // Función para comparar dos objetos de datos
+  const compareData = (data1: any, data2: any): boolean => {
+    if (!data1 || !data2) return false;
+    
+    // Comparar cliente
+    const cliente1 = data1.cliente || {};
+    const cliente2 = data2.cliente || {};
+    if (
+      cliente1.nombre !== cliente2.nombre ||
+      cliente1.apellido !== cliente2.apellido ||
+      cliente1.tipoDocumento !== cliente2.tipoDocumento ||
+      cliente1.dni !== cliente2.dni ||
+      cliente1.email !== cliente2.email ||
+      cliente1.telefono !== cliente2.telefono ||
+      cliente1.codigoPais !== cliente2.codigoPais
+    ) {
+      return false;
+    }
+
+    // Comparar vendedor
+    const vendedor1 = data1.vendedor || {};
+    const vendedor2 = data2.vendedor || {};
+    if (
+      vendedor1.id !== vendedor2.id ||
+      vendedor1.full_name !== vendedor2.full_name ||
+      vendedor1.email !== vendedor2.email
+    ) {
+      return false;
+    }
+
+    // Comparar vigencia
+    const validity1 = data1.validity || {};
+    const validity2 = data2.validity || {};
+    if (validity1.days !== validity2.days) {
+      return false;
+    }
+
+    // Comparar cronograma
+    const schedule1 = data1.schedule || [];
+    const schedule2 = data2.schedule || [];
+    if (schedule1.length !== schedule2.length) {
+      return false;
+    }
+    for (let i = 0; i < schedule1.length; i++) {
+      const item1 = schedule1[i];
+      const item2 = schedule2[i];
+      if (
+        item1.item !== item2.item ||
+        item1.date !== item2.date ||
+        Math.abs((item1.percentage || 0) - (item2.percentage || 0)) > 0.01 ||
+        Math.abs((item1.amount || 0) - (item2.amount || 0)) > 0.01
+      ) {
+        return false;
+      }
+    }
+
+    // Comparar descuento
+    const discount1 = data1.discount || {};
+    const discount2 = data2.discount || {};
+    if (
+      Math.abs((discount1.amount || 0) - (discount2.amount || 0)) > 0.01 ||
+      Math.abs((discount1.percentage || 0) - (discount2.percentage || 0)) > 0.01
+    ) {
+      return false;
+    }
+
+    // Comparar método de pago
+    if (data1.paymentMethod !== data2.paymentMethod) {
+      return false;
+    }
+
+    // Comparar separación
+    const separation1 = data1.separation || {};
+    const separation2 = data2.separation || {};
+    if (
+      Math.abs((separation1.amount || 0) - (separation2.amount || 0)) > 0.01 ||
+      Math.abs((separation1.percentage || 0) - (separation2.percentage || 0)) > 0.01 ||
+      separation1.enabled !== separation2.enabled
+    ) {
+      return false;
+    }
+
+    // Comparar inicial
+    const initial1 = data1.initial || {};
+    const initial2 = data2.initial || {};
+    if (
+      Math.abs((initial1.amount || 0) - (initial2.amount || 0)) > 0.01 ||
+      Math.abs((initial1.percentage || 0) - (initial2.percentage || 0)) > 0.01
+    ) {
+      return false;
+    }
+
+    // Comparar crédito hipotecario
+    const mortgageCredit1 = data1.mortgageCredit || {};
+    const mortgageCredit2 = data2.mortgageCredit || {};
+    if (
+      Math.abs((mortgageCredit1.amount || 0) - (mortgageCredit2.amount || 0)) > 0.01 ||
+      Math.abs((mortgageCredit1.percentage || 0) - (mortgageCredit2.percentage || 0)) > 0.01
+    ) {
+      return false;
+    }
+
+    // Comparar saldo final
+    const finalBalance1 = data1.finalBalance || {};
+    const finalBalance2 = data2.finalBalance || {};
+    if (
+      Math.abs((finalBalance1.amount || 0) - (finalBalance2.amount || 0)) > 0.01 ||
+      Math.abs((finalBalance1.percentage || 0) - (finalBalance2.percentage || 0)) > 0.01 ||
+      finalBalance1.date !== finalBalance2.date
+    ) {
+      return false;
+    }
+
+    // Comparar número de cuotas y otras configuraciones
+    if (
+      data1.numberOfInstallments !== data2.numberOfInstallments ||
+      data1.equivalentInstallments !== data2.equivalentInstallments ||
+      data1.firstPaymentDate !== data2.firstPaymentDate
+    ) {
+      return false;
+    }
+
+    return true;
+  };
+
   // Función para guardar cotización en la API
-  const saveQuotationToAPI = async (contactData: any) => {
+  const saveQuotationToAPI = async (contactData: any, quotationCode?: string) => {
       try {
       // Generar el PDF real usando el formato estándar
       const pdfBlob = await generateDocument(contactData, 'pdf');
       
       // Obtener el agente actual (vendedor logueado)
-      const currentAgent = userState || sellers[0];
+      const currentAgent = userState;
       const agentId = currentAgent?.id || '68f5db6bd9c0deedd190e4ce'; // ID por defecto
       
       // Preparar los datos del formulario
       const formData = new FormData();
       
-      // Generar código único para la cotización
-      const quotationCode = `COT-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
+      // Generar código único para la cotización si no se proporciona
+      const code = quotationCode || generateQuotationCode();
       
-      formData.append('code', quotationCode);
+      formData.append('code', code);
       formData.append('client', contactData.cliente?.nombre || '');
       formData.append('email', contactData.cliente?.email || '');
       formData.append('phone', contactData.cliente?.telefono || '');
@@ -1433,7 +1859,7 @@ const LotInfoModal = ({
 
       // Verificar que todos los campos requeridos estén presentes
       const requiredFields = {
-        code: quotationCode,
+        code: code,
         client: contactData.cliente?.nombre || '',
         email: contactData.cliente?.email || '',
         phone: contactData.cliente?.telefono || '',
@@ -1456,34 +1882,48 @@ const LotInfoModal = ({
         throw new Error('No hay token de autenticación. Por favor, inicie sesión nuevamente.');
       }
       
-      // Previsualizar lo que se enviará (FormData no es legible directamente)
-      const payloadPreview = {
-        endpoint: `${BASE_API}/quotations`,
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: {
-          code: quotationCode,
-          client: contactData.cliente?.nombre || '',
-          email: contactData.cliente?.email || '',
-          phone: contactData.cliente?.telefono || '',
-          identification_number: contactData.cliente?.dni || '',
-          lot_id: LOT_ID,
-          agreed_price: validAgreedPrice,
-          discount: validDiscount,
-          project_id: PROJECT_ID,
-          agent_id: agentId,
-          validity_days: contactData?.validity?.days || 0,
-          pdf_file: {
-            name: `cotizacion_${lotData.lot}_${new Date().toISOString().split('T')[0]}.pdf`,
-            type: pdfBlob?.type,
-            size: pdfBlob?.size,
-          },
+      // Preparar datos para console.log (FormData no es legible directamente)
+      const dataToSend = {
+        code: code,
+        client: contactData.cliente?.nombre || '',
+        email: contactData.cliente?.email || '',
+        phone: contactData.cliente?.telefono || '',
+        identification_number: contactData.cliente?.dni || '',
+        lot_id: LOT_ID,
+        agreed_price: validAgreedPrice,
+        discount: validDiscount,
+        project_id: PROJECT_ID,
+        agent_id: agentId,
+        validity_days: contactData?.validity?.days || 0,
+        pdf_file: {
+          name: `cotizacion_${lotData.lot}_${new Date().toISOString().split('T')[0]}.pdf`,
+          type: pdfBlob?.type,
+          size: pdfBlob?.size,
         },
       };
-      console.log('POST /quotations payload (preview):', payloadPreview);
+
+      // Mostrar todos los datos que se envían al dashboard
+      console.log('========================================');
+      console.log('DATOS ENVIADOS AL DASHBOARD (COTIZACIÓN)');
+      console.log('========================================');
+      console.log('Endpoint:', `${BASE_API}/quotations`);
+      console.log('Método:', 'POST');
+      console.log('Datos enviados:', JSON.stringify(dataToSend, null, 2));
+      console.log('----------------------------------------');
+      console.log('Detalles de los datos:');
+      console.log('- Código de cotización:', dataToSend.code);
+      console.log('- Cliente:', dataToSend.client);
+      console.log('- Email:', dataToSend.email);
+      console.log('- Teléfono:', dataToSend.phone);
+      console.log('- Número de documento:', dataToSend.identification_number);
+      console.log('- ID del lote:', dataToSend.lot_id);
+      console.log('- Precio acordado:', dataToSend.agreed_price);
+      console.log('- Descuento:', dataToSend.discount);
+      console.log('- ID del proyecto:', dataToSend.project_id);
+      console.log('- ID del agente:', dataToSend.agent_id);
+      console.log('- Vigencia (días):', dataToSend.validity_days);
+      console.log('- Archivo PDF:', dataToSend.pdf_file.name, `(${dataToSend.pdf_file.size} bytes)`);
+      console.log('========================================');
       
       // Enviar a la API
       const response = await fetch(`${BASE_API}/quotations`, {
@@ -1586,16 +2026,31 @@ const LotInfoModal = ({
 
   // Funciones para los botones de funcionalidades
   const handlePrint = () => {
+    // Generar o reutilizar código de cotización
+    const code = (hasBeenSaved && lastSavedData?.quotationCode) 
+      ? lastSavedData.quotationCode 
+      : generateQuotationCode();
+    setQuotationCodeForModal(code);
     setModalType("print");
     setShowContactModal(true);
   };
 
   const handleSave = () => {
+    // Generar o reutilizar código de cotización
+    const code = (hasBeenSaved && lastSavedData?.quotationCode) 
+      ? lastSavedData.quotationCode 
+      : generateQuotationCode();
+    setQuotationCodeForModal(code);
     setModalType("save");
     setShowContactModal(true);
   };
 
   const handleEmail = () => {
+    // Generar o reutilizar código de cotización
+    const code = (hasBeenSaved && lastSavedData?.quotationCode) 
+      ? lastSavedData.quotationCode 
+      : generateQuotationCode();
+    setQuotationCodeForModal(code);
     setModalType("email");
     setShowContactModal(true);
   };
@@ -1692,7 +2147,7 @@ const LotInfoModal = ({
               <div>${formatPrice(lotData.price)}</div>
             </div>
             <div class="info-item">
-              <div class="info-label">Fecha de Generación:</div>
+              <div class="info-label">Fecha de cotización:</div>
               <div>${new Date().toLocaleDateString()}</div>
             </div>
           </div>
@@ -1711,6 +2166,7 @@ const LotInfoModal = ({
             <div class="info-item">
               <div class="info-label">Cliente:</div>
               <div>${formatClientName(contactData.cliente)}</div>
+               ${formatClientDocument(contactData.cliente) ? `<div style="color: #666; font-size: 14px;">${formatClientDocument(contactData.cliente)}</div>` : ''}
               <div style="color: #666; font-size: 14px;">Email: ${contactData.cliente?.email || ''}</div>
               ${contactData.cliente?.telefono ? `<div style="color: #666; font-size: 14px;">Celular: ${formatPhone(contactData.cliente.telefono, contactData.cliente?.codigoPais || '+51')}</div>` : ''}
             </div>
@@ -1754,6 +2210,7 @@ const LotInfoModal = ({
         </div>
         
         <div class="footer">
+          ${quotationNotes ? `<p>${quotationNotes}</p>` : ''}
           <p>Documento generado el ${new Date().toLocaleString()}</p>
           <p>Sistema de Cotizaciones - Mikonos</p>
         </div>
@@ -1783,14 +2240,24 @@ const LotInfoModal = ({
     }
   };
 
+  // Función auxiliar para generar código de cotización
+  const generateQuotationCode = () => {
+    return `COT-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
+  };
+
   // Función auxiliar para obtener el nombre del archivo
-  const getFileName = (contactData: any, defaultPrefix: string, extension: string) => {
+  const getFileName = (contactData: any, defaultPrefix: string, extension: string, quotationCode?: string) => {
+    // Si hay nombre personalizado, usarlo
     if (contactData.fileName && contactData.fileName.trim()) {
       // Limpiar el nombre del archivo para remover caracteres no válidos y añadir extensión
       const cleanedName = contactData.fileName.trim().replace(/[<>:"/\\|?*]/g, '_');
       return `${cleanedName}.${extension}`;
     }
-    // Si no hay nombre personalizado, usar el nombre por defecto
+    // Si hay código de cotización, usarlo como nombre
+    if (quotationCode) {
+      return `${quotationCode}.${extension}`;
+    }
+    // Si no hay nombre personalizado ni código, usar el nombre por defecto
     return `${defaultPrefix}_${lotData.lot}_${new Date().toISOString().split('T')[0]}.${extension}`;
   };
 
@@ -1798,12 +2265,48 @@ const LotInfoModal = ({
     // Determinar si el usuario está logueado (agente comercial)
     const isLoggedIn = !!userState;
     
+    // Capturar datos actuales
+    const currentData = captureCurrentData(contactData);
+    
+    // Verificar si los datos han cambiado
+    const dataHasChanged = !hasBeenSaved || !compareData(currentData, lastSavedData);
+    
+    // Generar código de cotización (se usará como nombre de archivo siempre)
+    // Prioridad: 1) código del modal, 2) código guardado si no hay cambios, 3) generar nuevo
+    let quotationCode: string | undefined = undefined;
+    if (quotationCodeForModal) {
+      quotationCode = quotationCodeForModal;
+    } else if (hasBeenSaved && !dataHasChanged && lastSavedData?.quotationCode) {
+      quotationCode = lastSavedData.quotationCode;
+    } else {
+      quotationCode = generateQuotationCode();
+    }
+    
+    // Si está logueado, verificar si debe guardar
+    let shouldSave = false;
+    if (isLoggedIn) {
+      if (dataHasChanged) {
+        // Hay cambios, debe guardar
+        shouldSave = true;
+      } else if (hasBeenSaved) {
+        // No hay cambios y ya se guardó antes, mostrar aviso
+        alert(`Este documento ya fue guardado anteriormente. No se guardará nuevamente en el dashboard.`);
+        shouldSave = false;
+      } else {
+        // Primera vez, debe guardar
+        shouldSave = true;
+      }
+    }
+    
     switch (modalType) {
       case "print": {
-        // Si está logueado, guardar en BD antes de imprimir
-        if (isLoggedIn) {
+        // Si debe guardar, guardar en BD antes de imprimir
+        if (shouldSave) {
           try {
-            await saveQuotationToAPI(contactData);
+            await saveQuotationToAPI(contactData, quotationCode);
+            // Marcar como guardado y guardar los datos (incluyendo el código)
+            setHasBeenSaved(true);
+            setLastSavedData({ ...currentData, quotationCode });
           } catch (error) {
             console.error('Error al guardar cotización en BD:', error);
             // Continuar con la impresión aunque falle el guardado
@@ -1817,9 +2320,12 @@ const LotInfoModal = ({
         
       case "save": {
         try {
-          // Si está logueado, guardar en BD
-          if (isLoggedIn) {
-            await saveQuotationToAPI(contactData);
+          // Si debe guardar, guardar en BD
+          if (shouldSave) {
+            await saveQuotationToAPI(contactData, quotationCode);
+            // Marcar como guardado y guardar los datos (incluyendo el código)
+            setHasBeenSaved(true);
+            setLastSavedData({ ...currentData, quotationCode });
           }
           
           // Generar y descargar el PDF
@@ -1827,7 +2333,7 @@ const LotInfoModal = ({
           const url = URL.createObjectURL(pdfBlob);
           const link = document.createElement('a');
           link.href = url;
-          link.download = getFileName(contactData, 'Cronograma', 'pdf');
+          link.download = getFileName(contactData, 'Cronograma', 'pdf', quotationCode);
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
@@ -1840,7 +2346,7 @@ const LotInfoModal = ({
             const url = URL.createObjectURL(pdfBlob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = getFileName(contactData, 'Cronograma', 'pdf');
+            link.download = getFileName(contactData, 'Cronograma', 'pdf', quotationCode);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -1853,7 +2359,7 @@ const LotInfoModal = ({
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = getFileName(contactData, 'Cronograma', 'html');
+            link.download = getFileName(contactData, 'Cronograma', 'html', quotationCode);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -1864,9 +2370,12 @@ const LotInfoModal = ({
       }
         
       case "email": {
-        if (isLoggedIn) {
+        if (shouldSave) {
           try {
-            await saveQuotationToAPI(contactData);
+            await saveQuotationToAPI(contactData, quotationCode);
+            // Marcar como guardado y guardar los datos (incluyendo el código)
+            setHasBeenSaved(true);
+            setLastSavedData({ ...currentData, quotationCode });
           } catch (error) {
             console.error('Error al guardar cotización en BD:', error);
             // Continuar con el flujo aunque falle el guardado
@@ -1879,7 +2388,12 @@ const LotInfoModal = ({
     }
   };
 
-  useEffect(() => {}, [isVisible, loteData]);
+  useEffect(() => {
+    // Resetear estados de guardado cuando cambia el lote o se cierra el modal
+    setHasBeenSaved(false);
+    setLastSavedData(null);
+    setQuotationCodeForModal(undefined);
+  }, [isVisible, loteData]);
 
   return (
     <div
@@ -2015,7 +2529,7 @@ const LotInfoModal = ({
                     ? '#1DB779'  
                     : 'linear-gradient(135deg, #333 0%, #444 100%)' 
                 }} onClick={lotData.status === 'disponible' ? handleQuotationClick : undefined}>
-              <span>{lotData.status === 'disponible' ? 'Cotizar' : 'Este lote ya no esta disponible'}</span>
+              <span>{lotData.status === 'disponible' ? 'Cotizar' : 'Lote no disponible'}</span>
             </button>
           ) : (
             // Usuario no logueado: Dos botones
@@ -2037,7 +2551,7 @@ const LotInfoModal = ({
                 }} 
                 onClick={lotData.status === 'disponible' ? handleQuotationClick : undefined}
               >
-                <span>{lotData.status === 'disponible' ? 'Cotizar' : 'Este lote ya no esta disponible'}</span>
+                <span>{lotData.status === 'disponible' ? 'Cotizar' : 'Lote no disponible'}</span>
               </button>
             </div>
           )}
@@ -2117,10 +2631,7 @@ const LotInfoModal = ({
                       value={getFormattedValue(discountAmount, 'usd', 'discount-amount')}
                       onFocus={() => handleInputFocus('discount-amount')}
                       onBlur={() => handleDecimalBlur('discount-amount', (amount) => {
-                        const percentage = (amount / (loteData?.precio || 445000)) * 100;
-                        setDiscountAmount(amount);
-                        setDiscountPercentage(percentage);
-                        handleFieldChange("discount");
+                        applyDiscountFromAmount(amount);
                       })}
                       onChange={(e) => handleDiscountChange(e, "amount")}
                     />
@@ -2131,14 +2642,16 @@ const LotInfoModal = ({
                       value={getFormattedValue(discountPercentage, 'percentage', 'discount-percentage')}
                       onFocus={() => handleInputFocus('discount-percentage')}
                       onBlur={() => handleDecimalBlur('discount-percentage', (percentage) => {
-                        const amount = (percentage / 100) * (loteData?.precio || 445000);
-                        setDiscountAmount(amount);
-                        setDiscountPercentage(percentage);
-                        handleFieldChange("discount");
+                        applyDiscountFromPercentage(percentage);
                       })}
                       onChange={(e) => handleDiscountChange(e, "percentage")}
                     />
                   </div>
+                  {discountError && (
+                    <div className="error-message" style={{ marginTop: '6px' }}>
+                      {discountError}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -2442,18 +2955,18 @@ const LotInfoModal = ({
                     <label className="form-label">Primer y Último Pago</label>
                     <div className="input-group">
                       <input
-                        type="text"
+                        type="date"
                         className={`date-input ${dateError ? "error" : ""}`}
                         placeholder="dd/mm/aaaa"
-                        value={firstPaymentDate}
-                        onChange={(e) => handleDateChange(e.target.value)}
-                        onBlur={(e) => handleDateBlur(e.target.value)}
+                        value={toDateInputValue(firstPaymentDate)}
+                        onChange={(e) => handleDateChange(fromDateInputValue(e.target.value))}
+                        onBlur={(e) => handleDateBlur(fromDateInputValue(e.target.value))}
                       />
                       <input
-                        type="text"
+                        type="date"
                         className="date-input readonly"
                         placeholder="dd/mm/aaaa"
-                        value={calculatedFinalDate}
+                        value={toDateInputValue(calculatedFinalDate)}
                         readOnly
                       />
                     </div>
@@ -2662,18 +3175,18 @@ const LotInfoModal = ({
                     <label className="form-label">Primer y Último Pago</label>
                     <div className="input-group">
                       <input
-                        type="text"
+                        type="date"
                         className={`date-input ${dateError ? "error" : ""}`}
                         placeholder="dd/mm/aaaa"
-                        value={firstPaymentDate}
-                        onChange={(e) => handleDateChange(e.target.value)}
-                        onBlur={(e) => handleDateBlur(e.target.value)}
+                        value={toDateInputValue(firstPaymentDate)}
+                        onChange={(e) => handleDateChange(fromDateInputValue(e.target.value))}
+                        onBlur={(e) => handleDateBlur(fromDateInputValue(e.target.value))}
                       />
                       <input
-                        type="text"
+                        type="date"
                         className="date-input readonly"
                         placeholder="dd/mm/aaaa"
-                        value={calculatedFinalDate}
+                        value={toDateInputValue(calculatedFinalDate)}
                         readOnly
                       />
                     </div>
@@ -2815,18 +3328,18 @@ const LotInfoModal = ({
                     <label className="form-label">Pago Saldo Final</label>
                     <div className="input-group">
                       <input
-                        type="text"
+                        type="date"
                         className="date-input"
                         placeholder="dd/mm/aaaa"
-                        value={finalBalance.date || ""}
+                        value={toDateInputValue(finalBalance.date)}
                         onChange={(e) => {
                           setFinalBalance({
                             ...finalBalance,
-                            date: e.target.value
+                            date: fromDateInputValue(e.target.value)
                           });
                         }}
                         onBlur={(e) => {
-                          const formattedDate = formatDateInput(e.target.value);
+                          const formattedDate = formatDateInput(fromDateInputValue(e.target.value));
                           setFinalBalance({
                             ...finalBalance,
                             date: formattedDate
@@ -2879,24 +3392,73 @@ const LotInfoModal = ({
                       <td>{item.item}</td>
                       <td style={{ textAlign: "center" }}>
                         <input
-                          type="text"
+                          type="date"
                           className="input-date"
                           placeholder="dd/mm/aaaa"
-                          value={item.date}
+                          {...getDateInputMinMax(item.item)}
+                          value={toDateInputValue(item.date)}
                           onChange={(e) => {
                             const newSchedule = [...schedule];
-                            newSchedule[index].date = e.target.value;
+                            newSchedule[index].date = fromDateInputValue(e.target.value);
                             // No marcar aún, solo actualizar el input y no aceptar inválidos en blur
                             setSchedule(newSchedule);
                           }}
                           onBlur={(e) => {
-                            const formattedDate = formatDateInput(e.target.value);
+                            const inputValue = fromDateInputValue(e.target.value);
+                            const formattedDate = formatDateInput(inputValue);
                             const newSchedule = [...schedule];
                             if (formattedDate) {
-                              // Fecha válida
-                              newSchedule[index].date = formattedDate;
-                              newSchedule[index].isEditedDate = true;
-                              newSchedule[index].lastValidDate = formattedDate;
+                              // Validar fecha según el tipo de item (Separación/Inicial vs Cuotas)
+                              const validation = validateScheduleDate(formattedDate, item.item);
+                              if (validation.isValid) {
+                                // Fecha válida
+                                newSchedule[index].date = formattedDate;
+                                newSchedule[index].isEditedDate = true;
+                                newSchedule[index].lastValidDate = formattedDate;
+                                
+                                // Si es la primera cuota (Cuota 1), actualizar firstPaymentDate
+                                if (item.item === "Cuota 1") {
+                                  const newFirstPaymentDate = formattedDate;
+                                  setFirstPaymentDate(newFirstPaymentDate);
+                                  
+                                  // Validar y limpiar fechas de Separación e Inicial si son inválidas
+                                  const firstPaymentParsed = parse(newFirstPaymentDate, "dd/MM/yyyy", new Date());
+                                  if (isValid(firstPaymentParsed)) {
+                                    newSchedule.forEach((scheduleItem, scheduleIndex) => {
+                                      if (scheduleItem.item === "Separación" || scheduleItem.item === "Inicial") {
+                                        if (scheduleItem.date) {
+                                          const itemDateParsed = parse(scheduleItem.date, "dd/MM/yyyy", new Date());
+                                          if (isValid(itemDateParsed)) {
+                                            // Si la fecha de Separación/Inicial es posterior o igual a la nueva fecha de primera cuota, limpiarla
+                                            if (!isBefore(itemDateParsed, firstPaymentParsed)) {
+                                              newSchedule[scheduleIndex].date = '';
+                                              newSchedule[scheduleIndex].lastValidDate = '';
+                                              newSchedule[scheduleIndex].isEditedDate = false;
+                                            }
+                                          }
+                                        }
+                                      }
+                                    });
+                                  }
+                                  
+                                  // Recalcular fecha final si aplica
+                                  if (paymentMethod === "credito_directo" && numberOfInstallments > 0) {
+                                    const finalDate = calculateFinalPaymentDate(
+                                      newFirstPaymentDate,
+                                      numberOfInstallments
+                                    );
+                                    setCalculatedFinalDate(finalDate);
+                                  }
+                                }
+                              } else {
+                                // Fecha inválida: restaurar último válido (si existe) o vacío
+                                const fallback = newSchedule[index].lastValidDate || '';
+                                newSchedule[index].date = fallback;
+                                // Opcional: mostrar error (puedes agregar un estado de error si lo necesitas)
+                                if (validation.error) {
+                                  console.warn(`Error en fecha de ${item.item}: ${validation.error}`);
+                                }
+                              }
                             } else {
                               // Fecha inválida: restaurar último válido (si existe) o vacío
                               const fallback = newSchedule[index].lastValidDate || '';
@@ -2986,9 +3548,10 @@ const LotInfoModal = ({
                       <td className="muted">Desembolso CH</td>
                       <td style={{ textAlign: "center" }}>
                         <input
-                          type="text"
+                          type="date"
                           className="input-date muted"
                           placeholder="dd/mm/aaaa"
+                          readOnly
                         />
                       </td>
                       <td style={{ textAlign: "center" }}>
@@ -3051,6 +3614,7 @@ const LotInfoModal = ({
         onClose={() => setShowContactModal(false)}
         onSubmit={handleContactSubmit}
         currentUser={userState}
+        quotationCode={quotationCodeForModal}
       />
     </div>
   );

@@ -122,6 +122,105 @@ let maxArea = 0;
 let minPrice = 0;
 let minArea = 0;
 
+const ROMAN_VALUES = {
+  I: 1,
+  V: 5,
+  X: 10,
+  L: 50,
+  C: 100,
+  D: 500,
+  M: 1000,
+};
+
+function romanToNumber(roman = "") {
+  if (!roman) return 0;
+  const normalized = roman.toUpperCase().trim();
+  let total = 0;
+  let prev = 0;
+  for (let i = normalized.length - 1; i >= 0; i--) {
+    const current = ROMAN_VALUES[normalized[i]] || 0;
+    if (current < prev) {
+      total -= current;
+    } else {
+      total += current;
+      prev = current;
+    }
+  }
+  return total || 0;
+}
+
+function extractPhaseFromText(text = "") {
+  const match = text.match(/Etapa\s+([IVXLCDM]+|\d+)/i);
+  return match ? match[1] : "";
+}
+
+function extractBlockFromText(text = "") {
+  const match = text.match(/Mz\.\s*([A-Za-z0-9]+)/i);
+  return match ? match[1] : "";
+}
+
+function extractLotFromText(text = "") {
+  const match = text.match(/(Lt\.?|Lote)\s*(\d+)/i);
+  return match ? match[2] : "";
+}
+
+function normalizePhaseValue(rawValue, textFallback = "") {
+  const candidate = rawValue ?? extractPhaseFromText(textFallback);
+  if (candidate === undefined || candidate === null || candidate === "") return 0;
+  if (typeof candidate === "number") return candidate;
+  const numeric = parseInt(candidate, 10);
+  if (!isNaN(numeric)) return numeric;
+  return romanToNumber(String(candidate));
+}
+
+function normalizeBlockValue(rawValue, textFallback = "") {
+  const candidate = rawValue || extractBlockFromText(textFallback);
+  return (candidate || "").toString().trim().toUpperCase();
+}
+
+function normalizeLotNumberValue(rawValue, textFallback = "") {
+  if (typeof rawValue === "number") return rawValue;
+  const candidate = rawValue || extractLotFromText(textFallback);
+  if (!candidate) return 0;
+  const numeric = parseInt(candidate, 10);
+  return isNaN(numeric) ? 0 : numeric;
+}
+
+function getLotSortTokens(lot) {
+  const textReference = lot.number || "";
+  return {
+    phaseOrder:
+      typeof lot.phaseOrder === "number"
+        ? lot.phaseOrder
+        : normalizePhaseValue(undefined, textReference),
+    blockCode:
+      typeof lot.blockCode === "string" && lot.blockCode.length > 0
+        ? lot.blockCode
+        : normalizeBlockValue(undefined, textReference),
+    lotIndex:
+      typeof lot.lotIndex === "number"
+        ? lot.lotIndex
+        : normalizeLotNumberValue(undefined, textReference),
+  };
+}
+
+function compareLotsByLocation(a, b, isAscending = true) {
+  const dir = isAscending ? 1 : -1;
+  const tokensA = getLotSortTokens(a);
+  const tokensB = getLotSortTokens(b);
+
+  if (tokensA.phaseOrder !== tokensB.phaseOrder) {
+    return (tokensA.phaseOrder - tokensB.phaseOrder) * dir;
+  }
+
+  const blockCompare = tokensA.blockCode.localeCompare(tokensB.blockCode);
+  if (blockCompare !== 0) {
+    return blockCompare * dir;
+  }
+
+  return (tokensA.lotIndex - tokensB.lotIndex) * dir;
+}
+
 // Load custom map image
 try {
   viewer.imageryLayers.addImageryProvider(
@@ -261,6 +360,13 @@ async function loadLotesData() {
         const estado = p.estado || "disponible";
         const manzana = p.manzana || "";
         const lote = p.lote || "";
+        const direccion = p.direccion || p.number || "";
+        const phaseOrder = normalizePhaseValue(
+          (p._api && p._api.phase) || p.phase,
+          direccion
+        );
+        const blockCode = normalizeBlockValue(manzana, direccion);
+        const lotIndex = normalizeLotNumberValue(lote, direccion);
         return {
           id: p.direccion || `${idx}`,
           number:
@@ -271,6 +377,9 @@ async function loadLotesData() {
           price: precioNum,
           area: areaNum,
           status: String(estado).toLowerCase(),
+          phaseOrder,
+          blockCode,
+          lotIndex,
         };
       });
 
@@ -1356,13 +1465,9 @@ function applySorting(lots) {
       case "price-desc":
         return b.price - a.price;
       case "number-asc":
-        const numA = parseInt(a.number) || 0;
-        const numB = parseInt(b.number) || 0;
-        return numA - numB;
+        return compareLotsByLocation(a, b, true);
       case "number-desc":
-        const numA_desc = parseInt(a.number) || 0;
-        const numB_desc = parseInt(b.number) || 0;
-        return numB_desc - numA_desc;
+        return compareLotsByLocation(a, b, false);
       default:
         return 0;
     }

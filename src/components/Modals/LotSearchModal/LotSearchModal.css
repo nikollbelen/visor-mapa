@@ -95,7 +95,7 @@
 
 .filters-container {
   background: rgb(14 14 14 / 50%);
-  border: 1px solid rgb(255, 255, 255);
+  border: 1px solid var(--glass-border);
   border-radius: 15px;
   padding: 1rem;
   margin-bottom: 20px;
@@ -356,6 +356,30 @@
 .amenity-btn.active,
 .status-btn.active {
   border-color: #22c55e;
+}
+
+.status-btn.vendido.active {
+  background: rgba(251, 73, 73, 0.2);
+  border-color: #FB4949;
+  color: #fff;
+}
+
+.status-btn.reservado.active {
+  background: rgba(251, 224, 73, 0.2);
+  border-color: #FBE049;
+  color: #fff;
+}
+
+.status-btn.negociacion.active {
+  background: rgba(255, 165, 0, 0.2);
+  border-color: #FFA500;
+  color: #fff;
+}
+
+.status-btn.disponible.active {
+  background: rgba(29, 183, 121, 0.2);
+  border-color: #1DB779;
+  color: #fff;
 }
 
 .amenity-btn:hover,
