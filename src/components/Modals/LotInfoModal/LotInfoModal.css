@@ -152,6 +152,13 @@
   transition: color 0.3s ease;
 }
 
+.lot-modal-back .lot-modal-back-link {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 11;
+}
+
 .lot-modal-back-link:hover {
   color: #ccc;
 }
@@ -224,6 +231,7 @@
   border-radius: 8px;
   padding: 8px 16px;
   background: transparent;
+  text-align: center;
 }
 
 .lot-box span {
@@ -444,7 +452,7 @@
   font-weight: 600;
   color: white;
   text-align: center;
-  margin: 0;
+  margin: 1.5rem 0;
 }
 
 .quotation-close-btn {
@@ -576,6 +584,7 @@
 }
 
 .total-row {
+  display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 20px;

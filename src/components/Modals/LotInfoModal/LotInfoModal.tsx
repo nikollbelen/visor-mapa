@@ -95,6 +95,12 @@ const LotInfoModal = ({
     return stageText ? `${stageText} - ${unitText}` : unitText;
   };
 
+  // Función para obtener solo la parte del lote sin la etapa (para mostrar en el modal)
+  const getLotWithoutPhase = (lotString: string): string => {
+    // Remover "Etapa X - " del inicio si existe (maneja números romanos y arábigos)
+    return lotString.replace(/^Etapa\s+[IVX0-9]+\s*-\s*/i, '').trim();
+  };
+
   // Payment schedule states
   const [paymentMethod, setPaymentMethod] = useState("credito_directo");
   const [separation, setSeparation] = useState({
@@ -1394,7 +1400,7 @@ const LotInfoModal = ({
 
     // Header con fondo azul del tamaño del logo + padding
     const headerPadding = 5; // 0.5rem en mm
-    const targetLogoHeight = 20; // 2rem ≈ 20 mm
+    const targetLogoHeight = 15; // 2rem ≈ 20 mm
     let headerHeight = headerPadding * 2 + 20;
     try {
       const logoImage = await loadImage('/images/logo_mikonos.png');
@@ -1406,12 +1412,12 @@ const LotInfoModal = ({
       const headerX = (pageWidth - headerWidth) / 2;
       const headerY = 0;
       const cornerRadius = 6;
-      pdf.setFillColor('#0A3D62');
+      pdf.setFillColor('#1C284C');
       pdf.roundedRect(headerX, headerY, headerWidth, headerHeight, cornerRadius, cornerRadius, 'F');
       // Cubrir la parte superior para que quede plana
       pdf.rect(headerX, headerY, headerWidth, cornerRadius, 'F');
       // Cubrir borde superior para que quede recto
-      pdf.setFillColor('#0A3D62');
+      pdf.setFillColor('#1C284C');
       pdf.rect(headerX, headerY, headerWidth, cornerRadius, 'F');
       pdf.setDrawColor(colors.border);
       const logoX = headerX + headerPadding;
@@ -1424,7 +1430,7 @@ const LotInfoModal = ({
       const fallbackHeight = 25;
       const headerX = (pageWidth - fallbackWidth) / 2;
       const headerY = 0;
-      pdf.setFillColor('#0A3D62');
+      pdf.setFillColor('#1C284C');
       pdf.rect(headerX, headerY, fallbackWidth, fallbackHeight, 'F');
       yPosition = headerY + fallbackHeight + 15;
     }
@@ -1433,131 +1439,144 @@ const LotInfoModal = ({
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(18);
     pdf.setTextColor(colors.primary);
-    pdf.text('COTIZACIÓN DE LOTE', pageWidth / 2, yPosition, { align: 'center' });
+    pdf.text('Cotización de Lote', pageWidth / 2, yPosition, { align: 'center' });
     yPosition += 5;
 
-    // Línea separadora (como border-bottom del header)
-    pdf.setDrawColor(colors.primary);
-    pdf.setLineWidth(0.3);
-    pdf.line(20, yPosition, pageWidth - 20, yPosition);
-    yPosition += 20;
-
-    // Información del lote (como info-section)
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(16);
-    pdf.setTextColor(colors.secondary);
-    pdf.text('Información del Lote', 20, yPosition);
-    yPosition += 5;
-
-    // Línea separadora de sección
     pdf.setDrawColor(colors.border);
     pdf.setLineWidth(0.3);
     pdf.line(20, yPosition, pageWidth - 20, yPosition);
-    yPosition += 12;
+    yPosition += 8;
 
-    // Grid de información (como info-grid)
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(12);
-    pdf.setTextColor(colors.text);
-
-    const lotInfo = [
-      { label: 'Lote:', value: lotData.lot },
+    const lotDetails = [
+      { label: 'Lote:', value: lotData.lot || '—' },
+      { label: 'Etapa:', value: lotData.phase ? `Etapa ${lotData.phase}` : '—' },
+      { label: 'Área:', value: lotData.area || '—' },
       { label: 'Precio:', value: formatPrice(lotData.price) },
       { label: 'Fecha de cotización:', value: new Date().toLocaleDateString() }
     ];
 
-    // Crear grid de 2 columnas
-    lotInfo.forEach((info, index) => {
-      const xPos = index % 2 === 0 ? 20 : pageWidth / 2 + 10;
-      const yPos = yPosition + (Math.floor(index / 2) * 15);
-
-      // Fondo gris (como info-item)
-      pdf.setFillColor(colors.background);
-      pdf.rect(xPos - 2, yPos - 8, pageWidth / 2 - 15, 12, 'F');
-
-      // Texto
-      pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(colors.lightGray);
-      pdf.text(info.label, xPos, yPos - 2);
-      
-      pdf.setFont('helvetica', 'normal');
-      pdf.setTextColor(colors.text);
-      pdf.text(info.value, xPos, yPos + 3);
-    });
-
-    yPosition += 35;
-
-    // Datos de contacto
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(16);
-    pdf.setTextColor(colors.secondary);
-    pdf.text('Datos de Contacto', 20, yPosition);
-    yPosition += 5;
-
-    // Línea separadora
-    pdf.setDrawColor(colors.border);
-    pdf.setLineWidth(0.3);
-    pdf.line(20, yPosition, pageWidth - 20, yPosition);
-    yPosition += 6;
-
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(12);
-    pdf.setTextColor(colors.text);
+    const contactDetails = [
+      { label: 'Cliente:', value: formatClientName(contactData.cliente) || '—' },
+      { label: 'Documento:', value: formatClientDocument(contactData.cliente) || '—' },
+      { label: 'Email cliente:', value: contactData.cliente?.email || '—' },
+      { 
+        label: 'Celular cliente:', 
+        value: contactData.cliente?.telefono 
+          ? formatPhone(contactData.cliente.telefono, contactData.cliente?.codigoPais || '+51') 
+          : '—' 
+      }
+    ];
 
     if (userState) {
-      // Calcular alturas para vendedor y cliente
-      const vendedorHeight = contactData.vendedor?.email ? 20 : 12;
-      const hasClientDoc = !!formatClientDocument(contactData.cliente);
-      const clienteHeightBase = contactData.cliente?.telefono ? 27 : contactData.cliente?.email ? 20 : 12;
-      const clienteHeight = hasClientDoc ? clienteHeightBase + 6 : clienteHeightBase;
-      const maxHeight = Math.max(vendedorHeight, clienteHeight);
-
-      // VENDEDOR - Columna izquierda
-      pdf.setFillColor(colors.background);
-      pdf.rect(18, yPosition - 4, (pageWidth / 2) - 12, vendedorHeight, 'F');
-      
-      pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(colors.lightGray);
-      pdf.text('Vendedor:', 20, yPosition);
-      
-      pdf.setFont('helvetica', 'normal');
-      pdf.setTextColor(colors.text);
-      pdf.text(contactData.vendedor?.full_name || '', 20, yPosition + 8);
-      pdf.text(contactData.vendedor?.email || '', 20, yPosition + 13);
-
-      // CLIENTE - Columna derecha
-      const clienteX = (pageWidth / 2) + 10;
-      pdf.setFillColor(colors.background);
-      pdf.rect(clienteX - 2, yPosition - 4, (pageWidth / 2) - 12, clienteHeight, 'F');
-      
-      pdf.setFont('helvetica', 'bold');
-      pdf.setTextColor(colors.lightGray);
-      pdf.text('Cliente:', clienteX, yPosition);
-      
-      pdf.setFont('helvetica', 'normal');
-      pdf.setTextColor(colors.text);
-      let clientLineY = yPosition + 8;
-      pdf.text(formatClientName(contactData.cliente), clienteX, clientLineY);
-      clientLineY += 5;
-      if (formatClientDocument(contactData.cliente)) {
-        pdf.text(formatClientDocument(contactData.cliente), clienteX, clientLineY);
-        clientLineY += 5;
-      }
-      pdf.text(contactData.cliente?.email || '', clienteX, clientLineY);
-      clientLineY += 5;
-      if (contactData.cliente?.telefono) {
-        const code = contactData.cliente?.codigoPais || '+51';
-        pdf.text(formatPhone(contactData.cliente.telefono, code), clienteX, clientLineY);
-      }
-
-      yPosition += maxHeight + 10;
+      contactDetails.push(
+        { label: 'Vendedor:', value: contactData.vendedor?.full_name || '—' },
+        { label: 'Email vendedor:', value: contactData.vendedor?.email || '—' }
+      );
     }
+
+    const blockX = 20;
+    const blockWidth = pageWidth - 40;
+    const columnGap = 12;
+    const columnWidth = (blockWidth - columnGap) / 2;
+    const rightColumnX = blockX + columnWidth + columnGap;
+    const labelWidth = 35;
+    const valueMaxWidth = columnWidth - labelWidth + 25;
+    const leftValueStartX = blockX + labelWidth + 2;
+    const rightValueStartX = rightColumnX + labelWidth + 2;
+    const baseLineSpacing = 4.5;
+    const rows = Math.max(lotDetails.length, contactDetails.length);
+
+    type RowLayout = {
+      leftRow?: { label: string; value: string };
+      rightRow?: { label: string; value: string };
+      leftLines: string[];
+      rightLines: string[];
+      rowHeight: number;
+    };
+
+    const rowLayouts: RowLayout[] = [];
+    let blockHeight = 18;
+
+    for (let i = 0; i < rows; i++) {
+      const leftRow = lotDetails[i];
+      const rightRow = contactDetails[i];
+
+      const leftLines = leftRow
+        ? (pdf.splitTextToSize(String(leftRow.value), valueMaxWidth) as string[])
+        : [];
+      const rightLines = rightRow
+        ? (pdf.splitTextToSize(String(rightRow.value), valueMaxWidth) as string[])
+        : [];
+
+      const leftHeight = leftLines.length ? leftLines.length * baseLineSpacing : baseLineSpacing;
+      const rightHeight = rightLines.length ? rightLines.length * baseLineSpacing : baseLineSpacing;
+      const rowHeight = Math.max(leftHeight, rightHeight) + 2;
+      blockHeight += rowHeight;
+
+      rowLayouts.push({
+        leftRow,
+        rightRow,
+        leftLines,
+        rightLines,
+        rowHeight,
+      });
+    }
+
+    pdf.setFillColor('#f9f9f9');
+    pdf.roundedRect(blockX - 2, yPosition - 6, blockWidth + 4, blockHeight, 6, 6, 'F');
+
+    let currentY = yPosition + 4;
+
+    // Títulos de columna
+    //pdf.setFont('helvetica', 'bold');
+    //pdf.setFontSize(11);
+    //pdf.setTextColor(colors.secondary);
+    //pdf.text('Información del Lote', blockX, currentY);
+    //pdf.text('Datos de Contacto', rightColumnX, currentY);
+    //currentY += 6;
+
+    // Contenido
+    rowLayouts.forEach(({ leftRow, rightRow, leftLines, rightLines, rowHeight }) => {
+      const rowY = currentY;
+
+      if (leftRow) {
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(10);
+        pdf.setTextColor(colors.lightGray);
+        pdf.text(leftRow.label, blockX, rowY);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(10);
+        pdf.setTextColor(colors.text);
+        leftLines.forEach((line, idx) => {
+          const lineY = rowY + idx * baseLineSpacing;
+          pdf.text(line, leftValueStartX, lineY, { maxWidth: valueMaxWidth });
+        });
+      }
+
+      if (rightRow) {
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(10);
+        pdf.setTextColor(colors.lightGray);
+        pdf.text(rightRow.label, rightColumnX, rowY);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(10);
+        pdf.setTextColor(colors.text);
+        rightLines.forEach((line, idx) => {
+          const lineY = rowY + idx * baseLineSpacing;
+          pdf.text(line, rightValueStartX, lineY, { maxWidth: valueMaxWidth });
+        });
+      }
+
+      currentY += rowHeight;
+    });
+
+    yPosition += blockHeight + 10;
 
     // Cronograma de pagos (como schedule-table)
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(16);
     pdf.setTextColor(colors.secondary);
-    pdf.text('Cronograma de Pagos', 20, yPosition);
+    pdf.text('Cronograma de Pago', 20, yPosition);
     yPosition += 5;
 
     // Línea separadora
@@ -1595,7 +1614,7 @@ const LotInfoModal = ({
     pdf.setLineWidth(0.5);
     pdf.rect(20, yPosition - 6, pageWidth - 40, 8);
     
-    pdf.text('Cuota', columnCenters.cuota, yPosition, { align: 'center' });
+    pdf.text('Concepto', columnCenters.cuota, yPosition, { align: 'center' });
     pdf.text('Fecha de Vencimiento', columnCenters.fecha, yPosition, { align: 'center' });
     pdf.text('Porcentaje', columnCenters.porcentaje, yPosition, { align: 'center' });
     pdf.text('Monto', columnCenters.monto, yPosition, { align: 'right' });
@@ -1648,20 +1667,48 @@ const LotInfoModal = ({
       pdf.setFont('helvetica', 'normal');
       pdf.setFontSize(11);
       pdf.setTextColor(colors.text);
-      pdf.text(`El presente cronograma es válido por ${contactData.validity.days} días`, 20, yPosition + 12);
+      pdf.text(`El presente cronograma es válido por ${contactData.validity.days} días`, pageWidth / 2, yPosition + 12, { align: 'center' });
+      yPosition += 15;
     }
 
-    // Pie de página (como footer)
-    yPosition = pageHeight - 20;
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(10);
-    pdf.setTextColor(colors.lightGray);
+    // Sección de Notas
+    yPosition += 10;
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(12);
+    pdf.setTextColor(colors.secondary);
+    pdf.text('Notas', 20, yPosition);
+    yPosition += 8;
+
+    // Cuadro de notas
+    const notesBoxWidth = pageWidth - 40;
+    const notesBoxX = 20;
+    const notesBoxY = yPosition;
+    
+    // Calcular altura del cuadro según el contenido
+    let notesBoxHeight = 20; // Altura mínima
     if (quotationNotes) {
-      pdf.text(quotationNotes, pageWidth / 2, yPosition - 5, { align: 'center' });
-      yPosition -= 5;
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(10);
+      const notesLines = pdf.splitTextToSize(quotationNotes, notesBoxWidth - 8) as string[];
+      notesBoxHeight = Math.max(20, notesLines.length * 4.5 + 8);
     }
-    pdf.text(`Documento generado el ${new Date().toLocaleString()}`, pageWidth / 2, yPosition, { align: 'center' });
-    pdf.text('Sistema de Cotizaciones - Mikonos', pageWidth / 2, yPosition + 5, { align: 'center' });
+
+    // Dibujar el cuadro
+    pdf.setDrawColor(colors.border);
+    pdf.setLineWidth(0.5);
+    pdf.setFillColor('#ffffff');
+    pdf.roundedRect(notesBoxX, notesBoxY, notesBoxWidth, notesBoxHeight, 4, 4, 'FD');
+
+    // Texto de las notas dentro del cuadro
+    if (quotationNotes) {
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(10);
+      pdf.setTextColor(colors.text);
+      const notesLines = pdf.splitTextToSize(quotationNotes, notesBoxWidth - 8) as string[];
+      notesLines.forEach((line, idx) => {
+        pdf.text(line, notesBoxX + 4, notesBoxY + 6 + (idx * 4.5));
+      });
+    }
 
     return pdf.output('blob');
   };
@@ -2123,7 +2170,7 @@ const LotInfoModal = ({
               print-color-adjust: exact !important;
             }
             .logo-wrapper {
-              background-color: #0A3D62 !important;
+              background-color: #1C284C !important;
               border: none !important;
               box-shadow: none !important;
             }
@@ -2134,7 +2181,7 @@ const LotInfoModal = ({
             margin-bottom: 24px;
           }
           .logo-wrapper {
-            background: #0A3D62;
+            background: #1C284C;
             padding: 16px;
             border-radius: 0 0 8px 8px;
             border: none;
@@ -2150,8 +2197,6 @@ const LotInfoModal = ({
           }
           .header { 
             text-align: center; 
-            border-bottom: 2px solid #333; 
-            padding-bottom: 20px; 
             margin-bottom: 30px;
           }
           .header h1 { 
@@ -2167,20 +2212,45 @@ const LotInfoModal = ({
             border-bottom: 1px solid #ccc; 
             padding-bottom: 10px;
           }
-          .info-grid { 
-            display: grid; 
-            grid-template-columns: 1fr 1fr; 
-            gap: 20px; 
-            margin-bottom: 20px;
+          .info-block {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 24px;
+            background: #f9f9f9;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 24px;
           }
-          .info-item { 
-            padding: 10px; 
-            background: #f5f5f5; 
-            border-radius: 5px;
+          .info-column h3 {
+            margin: 0 0 12px 0;
+            font-size: 16px;
+            color: #2d2d2d;
+          }
+          .info-row {
+            display: flex;
+            justify-content: flex-start;
+            gap: 4px;
+            margin-bottom: 6px;
+            font-size: 12px;
+            line-height: 1.2;
+            align-items: flex-start;
+          }
+          .info-row:last-child {
+            margin-bottom: 0;
           }
           .info-label { 
-            font-weight: bold; 
-            color: #666; 
+            font-weight: 600; 
+            color: #555; 
+            min-width: 90px;
+            margin-right: 2px;
+          }
+          .info-value {
+            color: #111;
+            font-weight: 500;
+            text-align: left;
+            flex: 1;
+            word-break: break-word;
+            line-height: 1.3;
           }
           .schedule-table { 
             width: 100%; 
@@ -2203,6 +2273,27 @@ const LotInfoModal = ({
             background: #e8f5e8 !important; 
             font-weight: bold;
           }
+          .notes-section {
+            margin-top: 30px;
+            margin-bottom: 20px;
+          }
+          .notes-title {
+            font-size: 12px;
+            font-weight: bold;
+            color: #444;
+            margin-bottom: 8px;
+          }
+          .notes-box {
+            width: 100%;
+            min-height: 50px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 8px;
+            background: #ffffff;
+            font-size: 10px;
+            color: #333;
+            box-sizing: border-box;
+          }
           .footer { 
             margin-top: 40px; 
             text-align: center; 
@@ -2218,59 +2309,70 @@ const LotInfoModal = ({
           </div>
         </div>
         <div class="header">
-          <h1>COTIZACIÓN DE LOTE</h1>
+          <h1>Cotización de Lote</h1>
         </div>
         
         <div class="info-section">
-          <h2>Información del Lote</h2>
-          <div class="info-grid">
-            <div class="info-item">
-              <div class="info-label">Lote:</div>
-              <div>${lotData.lot}</div>
+          <div class="info-block">
+            <div class="info-column">
+              <div class="info-row">
+                <span class="info-label">Lote:</span>
+                <span class="info-value">${lotData.lot || '—'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Etapa:</span>
+                <span class="info-value">${lotData.phase ? `Etapa ${lotData.phase}` : '—'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Área:</span>
+                <span class="info-value">${lotData.area || '—'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Precio:</span>
+                <span class="info-value">${formatPrice(lotData.price)}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Fecha de cotización:</span>
+                <span class="info-value">${new Date().toLocaleDateString()}</span>
+              </div>
             </div>
-            <div class="info-item">
-              <div class="info-label">Precio:</div>
-              <div>${formatPrice(lotData.price)}</div>
-            </div>
-            <div class="info-item">
-              <div class="info-label">Fecha de cotización:</div>
-              <div>${new Date().toLocaleDateString()}</div>
+            <div class="info-column">
+              <div class="info-row">
+                <span class="info-label">Cliente:</span>
+                <span class="info-value">${formatClientName(contactData.cliente) || '—'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Documento:</span>
+                <span class="info-value">${formatClientDocument(contactData.cliente) || '—'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Email cliente:</span>
+                <span class="info-value">${contactData.cliente?.email || '—'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Celular cliente:</span>
+                <span class="info-value">${contactData.cliente?.telefono ? `${formatPhone(contactData.cliente.telefono, contactData.cliente?.codigoPais || '+51')}` : '—'}</span>
+              </div>
+              ${userState ? `
+              <div class="info-row">
+                <span class="info-label">Vendedor:</span>
+                <span class="info-value">${contactData.vendedor?.full_name || '—'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Email vendedor:</span>
+                <span class="info-value">${contactData.vendedor?.email || '—'}</span>
+              </div>
+              ` : ''}
             </div>
           </div>
         </div>
         
         <div class="info-section">
-          <h2>Datos de Contacto</h2>
-          <div class="info-grid">
-            ${userState ? `
-            <div class="info-item">
-              <div class="info-label">Vendedor:</div>
-              <div>${contactData.vendedor?.full_name || ''}</div>
-              <div style="color: #666; font-size: 14px;">${contactData.vendedor?.email || ''}</div>
-            </div>
-            ` : ''}
-            <div class="info-item">
-              <div class="info-label">Cliente:</div>
-              <div>${formatClientName(contactData.cliente)}</div>
-               ${formatClientDocument(contactData.cliente) ? `<div style="color: #666; font-size: 14px;">${formatClientDocument(contactData.cliente)}</div>` : ''}
-              <div style="color: #666; font-size: 14px;">Email: ${contactData.cliente?.email || ''}</div>
-              ${contactData.cliente?.telefono ? `<div style="color: #666; font-size: 14px;">Celular: ${formatPhone(contactData.cliente.telefono, contactData.cliente?.codigoPais || '+51')}</div>` : ''}
-            </div>
-          </div>
-        </div>
-        
-        ${contactData?.validity?.days ? `
-        <div class="info-section">
-          <p><strong>Vigencia:</strong> El presente cronograma es válido por ${contactData.validity.days} días.</p>
-        </div>
-        ` : ''}
-        
-        <div class="info-section">
-          <h2>Cronograma de Pagos</h2>
+          <h2>Cronograma de Pago</h2>
           <table class="schedule-table">
             <thead>
               <tr>
-                <th>Cuota</th>
+                <th>Concepto</th>
                 <th>Fecha de Vencimiento</th>
                 <th>Porcentaje</th>
                 <th>Monto</th>
@@ -2295,11 +2397,17 @@ const LotInfoModal = ({
           </table>
         </div>
         
-        <div class="footer">
-          ${quotationNotes ? `<p>${quotationNotes}</p>` : ''}
-          <p>Documento generado el ${new Date().toLocaleString()}</p>
-          <p>Sistema de Cotizaciones - Mikonos</p>
+        ${contactData?.validity?.days ? `
+        <div class="info-section" style="text-align: center;">
+          <p>El presente cronograma es válido por ${contactData.validity.days} días.</p>
         </div>
+        ` : ''}
+        
+        <div class="notes-section">
+          <div class="notes-title">Notas</div>
+          <div class="notes-box">${quotationNotes || ''}</div>
+        </div>
+      
       </body>
       </html>
     `;
@@ -2517,7 +2625,7 @@ const LotInfoModal = ({
             <div className="lot-stage-badge">Etapa {lotData.phase || "1"}</div>
             <div className="lot-center">
               <div className="lot-box">
-                <span id="modalLot">{lotData.lot}</span>
+                <span id="modalLot">{getLotWithoutPhase(lotData.lot)}</span>
               </div>
             </div>
             <div
@@ -2662,13 +2770,19 @@ const LotInfoModal = ({
         </a>
 
         <div className="quotation-header">
-          <div className="quotation-title">
-            <span>Cotización de lote</span>
-          </div>
           <button className="quotation-close-btn" onClick={handleClose}>
             <i className="fas fa-times"></i>
           </button>
         </div>
+          <div className="quotation-title">
+            <span>Cotización de Lote</span>
+          </div>
+
+          <div className="section-header">
+              <h2 className="section-title">Cronograma de pago</h2>
+              <button className="clear-link" onClick={handleClearSchedule}>Limpiar</button>
+            </div>
+          
 
         <div className="lot-modal-content">
           {/* Detalles del lote */}
@@ -2683,7 +2797,7 @@ const LotInfoModal = ({
               </div>
               <div className="quotation-table-row">
                 <div className="quotation-cell item-name">Lote</div>
-                <div className="quotation-cell item-value">Etapa {lotData.phase || "1"}</div>
+                <div className="quotation-cell item-value">{lotData.phase || "1"}</div>
                 <div className="quotation-cell item-value">
                   {(() => {
                     // Parse format "Mz. E - Lote 7" to "E7"
@@ -2763,10 +2877,6 @@ const LotInfoModal = ({
 
           {/* Cronograma de Pago */}
           <div className="payment-schedule-section">
-            <div className="section-header">
-              <h2 className="section-title">Cronograma de Pago</h2>
-              <button className="clear-link" onClick={handleClearSchedule}>Limpiar</button>
-            </div>
 
             <div className="payment-form">
               <div className="form-group">
@@ -2789,7 +2899,6 @@ const LotInfoModal = ({
                 <>
                   <div className="form-group">
                     <label className="form-label">
-                      Separación
                       <input
                         type="checkbox"
                         className="checkbox"
@@ -2802,6 +2911,7 @@ const LotInfoModal = ({
                           setNeedsUpdate(true);
                         }}
                       />
+                      Separación
                     </label>
                     {separation.enabled && (
                       <div className="input-group">
@@ -3023,7 +3133,6 @@ const LotInfoModal = ({
                         }}
                       />
                       <div className="checkbox-label">
-                        <span>Cuotas Equivalentes</span>
                         <input
                           type="checkbox"
                           className="checkbox"
@@ -3033,6 +3142,7 @@ const LotInfoModal = ({
                             setNeedsUpdate(true);
                           }}
                         />
+                        <span>Cuotas Equivalentes</span>
                       </div>
                     </div>
                   </div>
@@ -3686,7 +3796,7 @@ const LotInfoModal = ({
               <div className="function-buttons">
                 <button className="function-btn print" onClick={handlePrint} disabled={!functionalitiesEnabled}> <i className="fas fa-print"></i> Imprimir</button>
                 <button className="function-btn save" onClick={handleSave} disabled={!functionalitiesEnabled}> <i className="fas fa-save"></i> Guardar</button>
-                <button className="function-btn email" onClick={handleEmail} disabled={!functionalitiesEnabled}> <i className="fas fa-envelope"></i> Enviar por correo</button>
+                <button className="function-btn email" onClick={handleEmail} disabled={!functionalitiesEnabled}> <i className="fas fa-envelope"></i> Enviar</button>
               </div>
             </div>
           </div>

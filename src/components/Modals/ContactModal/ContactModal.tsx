@@ -79,9 +79,14 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser, quotati
   // Actualizar fileName con el código de cotización cuando el modal se abre y hay código disponible
   useEffect(() => {
     if (isVisible && quotationCode && type === 'save') {
-      // Solo actualizar si fileName está vacío o no coincide con el código
+      // Siempre establecer el código de cotización si está disponible, tiene prioridad sobre el nombre generado
       setContactData(prev => {
-        if (prev.fileName === '' || prev.fileName !== quotationCode) {
+        // Verificar si el fileName actual no es un código de cotización
+        const currentFileName = prev.fileName || '';
+        const isQuotationCode = currentFileName.match(/^COT-\d{4}-\d{3}$/) || currentFileName === quotationCode;
+        
+        // Si no es un código de cotización o está vacío, establecer el quotationCode
+        if (!isQuotationCode || currentFileName === '') {
           return {
             ...prev,
             fileName: quotationCode
@@ -312,18 +317,23 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser, quotati
   // Auto-generar nombre de archivo cuando cambian nombre o apellido
   useEffect(() => {
     if (type === 'save' && (contactData.cliente.nombre || contactData.cliente.apellido)) {
-      const autoFileName = generateFileName();
-      // Solo actualizar si no hay un nombre personalizado o es el nombre generado automáticamente
       const currentFileName = contactData.fileName || '';
-      if (!currentFileName || currentFileName === '' || currentFileName.match(/^Documento_/)) {
-        setContactData(prev => ({
-          ...prev,
-          fileName: autoFileName
-        }));
+      // No sobrescribir si ya hay un código de cotización (formato COT-YYYY-XXX) o si coincide con quotationCode
+      const isQuotationCode = currentFileName.match(/^COT-\d{4}-\d{3}$/) || currentFileName === quotationCode;
+      
+      if (!isQuotationCode) {
+        const autoFileName = generateFileName();
+        // Solo actualizar si no hay un nombre personalizado o es el nombre generado automáticamente
+        if (!currentFileName || currentFileName === '' || currentFileName.match(/^Documento_/)) {
+          setContactData(prev => ({
+            ...prev,
+            fileName: autoFileName
+          }));
+        }
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contactData.cliente.nombre, contactData.cliente.apellido, type]);
+  }, [contactData.cliente.nombre, contactData.cliente.apellido, type, quotationCode]);
 
   const handleSubmit = () => {
     // Validar todos los campos (solo cliente, nunca vendedor)
