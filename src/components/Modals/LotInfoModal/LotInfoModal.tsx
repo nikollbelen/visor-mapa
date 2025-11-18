@@ -1365,7 +1365,17 @@ const LotInfoModal = ({
   };
 
   // Función para generar PDF mejorado que se parezca al HTML de impresión
-  const generatePDFWithText = (contactData: any): Blob => {
+  const loadImage = (src: string): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = src;
+    });
+  };
+
+  const generatePDFWithText = async (contactData: any): Promise<Blob> => {
     const pdf = new jsPDF('p', 'mm', 'a4');
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
@@ -1381,6 +1391,43 @@ const LotInfoModal = ({
       border: '#ddd',
       totalBg: '#e8f5e8'
     };
+
+    // Header con fondo azul del tamaño del logo + padding
+    const headerPadding = 5; // 0.5rem en mm
+    const targetLogoHeight = 20; // 2rem ≈ 20 mm
+    let headerHeight = headerPadding * 2 + 20;
+    try {
+      const logoImage = await loadImage('/images/logo_mikonos.png');
+      const aspectRatio = logoImage.width / (logoImage.height || 1) || 1;
+      const logoHeight = targetLogoHeight;
+      const logoWidth = logoHeight * aspectRatio;
+      headerHeight = logoHeight + headerPadding * 2;
+      const headerWidth = logoWidth + headerPadding * 2;
+      const headerX = (pageWidth - headerWidth) / 2;
+      const headerY = 0;
+      const cornerRadius = 6;
+      pdf.setFillColor('#0A3D62');
+      pdf.roundedRect(headerX, headerY, headerWidth, headerHeight, cornerRadius, cornerRadius, 'F');
+      // Cubrir la parte superior para que quede plana
+      pdf.rect(headerX, headerY, headerWidth, cornerRadius, 'F');
+      // Cubrir borde superior para que quede recto
+      pdf.setFillColor('#0A3D62');
+      pdf.rect(headerX, headerY, headerWidth, cornerRadius, 'F');
+      pdf.setDrawColor(colors.border);
+      const logoX = headerX + headerPadding;
+      const logoY = headerY + headerPadding;
+      pdf.addImage(logoImage, 'PNG', logoX, logoY, logoWidth, logoHeight);
+      yPosition = headerY + headerHeight + 15;
+    } catch (logoError) {
+      console.warn('No se pudo cargar el logo para el PDF:', logoError);
+      const fallbackWidth = 70;
+      const fallbackHeight = 25;
+      const headerX = (pageWidth - fallbackWidth) / 2;
+      const headerY = 0;
+      pdf.setFillColor('#0A3D62');
+      pdf.rect(headerX, headerY, fallbackWidth, fallbackHeight, 'F');
+      yPosition = headerY + fallbackHeight + 15;
+    }
 
     // Título principal (como el header del HTML)
     pdf.setFont('helvetica', 'bold');
@@ -1630,7 +1677,7 @@ const LotInfoModal = ({
       }
 
       // Para PDF, usar jsPDF directamente con texto
-      return generatePDFWithText(contactData);
+      return await generatePDFWithText(contactData);
 
     } catch (error) {
       console.error('Error generando documento:', error);
@@ -1823,6 +1870,7 @@ const LotInfoModal = ({
       try {
       // Generar el PDF real usando el formato estándar
       const pdfBlob = await generateDocument(contactData, 'pdf');
+      const finalFileName = getFileName(contactData, 'Cronograma', 'pdf', quotationCode);
       
       // Obtener el agente actual (vendedor logueado)
       const currentAgent = userState;
@@ -1855,7 +1903,7 @@ const LotInfoModal = ({
       if (contactData?.validity?.days) {
         formData.append('validity_days', String(contactData.validity.days));
       }
-      formData.append('pdf_file', pdfBlob, `cotizacion_${lotData.lot}_${new Date().toISOString().split('T')[0]}.pdf`);
+      formData.append('pdf_file', pdfBlob, finalFileName);
 
       // Verificar que todos los campos requeridos estén presentes
       const requiredFields = {
@@ -1896,7 +1944,7 @@ const LotInfoModal = ({
         agent_id: agentId,
         validity_days: contactData?.validity?.days || 0,
         pdf_file: {
-          name: `cotizacion_${lotData.lot}_${new Date().toISOString().split('T')[0]}.pdf`,
+          name: finalFileName,
           type: pdfBlob?.type,
           size: pdfBlob?.size,
         },
@@ -2064,8 +2112,41 @@ const LotInfoModal = ({
         <style>
           body { 
             font-family: Arial, sans-serif; 
-            margin: 20px; 
+            margin: 0; 
+            padding: 20px; 
+            padding-top: 0;
             color: #333;
+          }
+          @media print {
+            * {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            .logo-wrapper {
+              background-color: #0A3D62 !important;
+              border: none !important;
+              box-shadow: none !important;
+            }
+          }
+          .pdf-header {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 24px;
+          }
+          .logo-wrapper {
+            background: #0A3D62;
+            padding: 16px;
+            border-radius: 0 0 8px 8px;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: none;
+          }
+          .logo-wrapper img {
+            height: 48px;
+            width: auto;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
           }
           .header { 
             text-align: center; 
@@ -2131,6 +2212,11 @@ const LotInfoModal = ({
         </style>
       </head>
       <body>
+        <div class="pdf-header">
+          <div class="logo-wrapper">
+            <img src="/images/logo_mikonos.png" alt="Mikonos" />
+          </div>
+        </div>
         <div class="header">
           <h1>COTIZACIÓN DE LOTE</h1>
         </div>
@@ -2428,8 +2514,8 @@ const LotInfoModal = ({
 
         <div className="lot-modal-content">
           <div className="lot-identification">
-            <div className="lot-id-left">
-              <div className="lot-stage-badge">Etapa {lotData.phase || "1"}</div>
+            <div className="lot-stage-badge">Etapa {lotData.phase || "1"}</div>
+            <div className="lot-center">
               <div className="lot-box">
                 <span id="modalLot">{lotData.lot}</span>
               </div>
@@ -3598,9 +3684,9 @@ const LotInfoModal = ({
             <div className="functionalities">
               <h3>Funcionalidades</h3>
               <div className="function-buttons">
-                <button className="function-btn" onClick={handlePrint} disabled={!functionalitiesEnabled}>Imprimir</button>
-                <button className="function-btn" onClick={handleSave} disabled={!functionalitiesEnabled}>Guardar</button>
-                <button className="function-btn" onClick={handleEmail} disabled={!functionalitiesEnabled}>Enviar por correo</button>
+                <button className="function-btn print" onClick={handlePrint} disabled={!functionalitiesEnabled}> <i className="fas fa-print"></i> Imprimir</button>
+                <button className="function-btn save" onClick={handleSave} disabled={!functionalitiesEnabled}> <i className="fas fa-save"></i> Guardar</button>
+                <button className="function-btn email" onClick={handleEmail} disabled={!functionalitiesEnabled}> <i className="fas fa-envelope"></i> Enviar por correo</button>
               </div>
             </div>
           </div>

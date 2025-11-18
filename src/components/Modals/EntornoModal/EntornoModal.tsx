@@ -42,6 +42,11 @@ const EntornoModal = ({ isVisible = false, onClose, entornoData }: EntornoModalP
   const [showTimeEstimate, setShowTimeEstimate] = useState(false);
   const [timeEstimate, setTimeEstimate] = useState('');
 
+  useEffect(() => {
+    setShowTimeEstimate(false);
+    setTimeEstimate('');
+  }, [entornoData]);
+
   const handleClose = () => {
     // Resetear todo cuando se cierra completamente
     setIsHidden(false);
@@ -96,6 +101,23 @@ const EntornoModal = ({ isVisible = false, onClose, entornoData }: EntornoModalP
     }
   };
 
+  const handleOpenGoogleMaps = () => {
+    if (!data.coordinates) return;
+
+    const coords = Array.isArray(data.coordinates)
+      ? data.coordinates
+      : data.coordinates
+          .split(',')
+          .map((coord: string) => parseFloat(coord.trim()))
+          .filter((value: number) => !Number.isNaN(value));
+
+    if (coords.length < 2) return;
+
+    const [longitude, latitude] = coords;
+    const mapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
+    window.open(mapsUrl, '_blank', 'noopener,noreferrer');
+  };
+
   // No renderizar si no es visible
   if (!isVisible) {
     return null;
@@ -141,7 +163,15 @@ const EntornoModal = ({ isVisible = false, onClose, entornoData }: EntornoModalP
             style={{ backgroundImage: `url(${data.imagen})` }}
           ></div>
           <div className="around-card-title" id="aroundCardTitle">
-            {data.title}
+            <span>{data.title}</span>
+            {showTimeEstimate && (
+              <div 
+                className="around-card-time-estimate inline" 
+                id="aroundModalTimeEstimate"
+              >
+                <i className="fas fa-car" style={{ marginRight: '6px' }}></i><span id="aroundModalTime">{timeEstimate}</span>
+              </div>
+            )}
           </div>
             <div className="around-card-details">
               <h2>Ubicación:</h2>
@@ -151,20 +181,22 @@ const EntornoModal = ({ isVisible = false, onClose, entornoData }: EntornoModalP
                   : data.coordinates}
               </p>
             <div className="around-card-info-row">
-              <div 
-                className="around-card-time-estimate" 
-                id="aroundModalTimeEstimate"
-                style={{ display: showTimeEstimate ? 'block' : 'none' }}
+              <button
+                className="around-card-link-button"
+                id="openGoogleMapsBtn"
+                onClick={handleOpenGoogleMaps}
               >
-                <span id="aroundModalTime">{timeEstimate}</span>
-              </div>
-              <button 
-                className="background-btn around-card-link-button" 
-                id="calculateRouteBtn"
-                onClick={handleCalculateRoute}
-              >
-                Cómo llegar <i className="fas fa-route"></i>
+                Ver en Google Maps <i className="fas fa-map-location-dot"></i>
               </button>
+              {!showTimeEstimate && (
+                <button 
+                  className="background-btn around-card-link-button" 
+                  id="calculateRouteBtn"
+                  onClick={handleCalculateRoute}
+                >
+                  Cómo llegar
+                </button>
+              )}
             </div>
           </div>
         </div>
