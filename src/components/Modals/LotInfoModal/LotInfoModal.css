@@ -82,6 +82,7 @@
 
   .schedule-table th,
   .schedule-table td {
+    text-align: center;
     font-size: 11px;
     padding: 8px 6px;
   }
@@ -455,6 +456,13 @@
   margin: 1.5rem 0;
 }
 
+.quotation-divider {
+  width: 90%;
+  height: 1px;
+  background: linear-gradient(to right, transparent 0%, rgba(255, 255, 255, 0.2) 15%, rgba(255, 255, 255, 0.8) 50%, rgba(255, 255, 255, 0.2) 85%, transparent 100%);
+  margin: 1rem 8px 0;
+}
+
 .quotation-close-btn {
   position: absolute;
   top: 20px;
@@ -472,15 +480,23 @@
   opacity: 1;
 }
 
+.quotation-details-section {
+  border-radius: 0.7rem;
+    overflow: hidden;
+    border: 1px solid #333;
+}
+
 .quotation-table-header {
+  border: 1px solid #333;
+  border-radius: 0 0 0.7rem 0.7rem;
   display: grid;
   grid-template-columns: 0.8fr 1fr 0.6fr 1.1fr 1fr;
   gap: 8px;
   padding: 12px 20px;
-  background: #2d2d2d;
+  background: #0d0d0db3;
   color: white;
   font-weight: 600;
-  font-size: 11px;
+  font-size: 14px;
 }
 
 .quotation-header-cell {
@@ -488,7 +504,7 @@
   text-align: left;
   color: white;
   border: none;
-  font-size: 11px;
+  font-size: 14px;
 }
 
 .quotation-table-row {
@@ -540,7 +556,7 @@
 .discount-input {
   background: rgba(16, 185, 129, 0.2);
   color: #10b981;
-  border: 1px solid #10b981;
+  border: none;
   border-radius: 6px;
   padding: 5px 10px;
   font-size: 11px;
@@ -552,7 +568,7 @@
 
 .discount-input:focus {
   background: rgba(16, 185, 129, 0.3);
-  border-color: #0ea472;
+  border: 1px solid #10b981;
 }
 
 .discount-input::placeholder {
@@ -567,6 +583,8 @@
   align-items: center;
   padding: 15px 20px;
   border-bottom: 1px solid #333;
+  border-top: 1px solid #333;
+  background-color: #0d0d0d4d;
 }
 
 .discount-label {
@@ -584,23 +602,20 @@
 }
 
 .total-row {
-  display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%);
-  border-bottom: 2px solid #333;
 }
 
 .total-label {
   color: white;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
 }
 
 .total-value {
   color: #10b981;
-  font-size: 24px;
+  font-size: 16px;
   font-weight: 700;
 }
 
@@ -657,7 +672,7 @@
 }
 
 .form-select {
-  background: #2d2d2d;
+  background: #0d0d0db3;
   color: white;
   border: 1px solid #444;
   border-radius: 6px;
@@ -685,7 +700,7 @@
 }
 
 .form-input {
-  background: #2d2d2d;
+  background: #0d0d0db3;
   color: white;
   border: 1px solid #444;
   border-radius: 6px;
@@ -723,7 +738,7 @@ select.form-input option:hover {
 }
 
 .date-input {
-  background: #2d2d2d;
+  background: #0d0d0db3;
     color: white;
     border: 1px solid #444;
     border-radius: 6px;
@@ -731,6 +746,7 @@ select.form-input option:hover {
     font-size: 13px;
     outline: none;
   transition: border-color 0.2s ease;
+  color-scheme: dark;
 }
 
 .date-input:focus {
@@ -750,11 +766,54 @@ select.form-input option:hover {
   color: #666;
 }
 
-.checkbox {
-  width: 18px;
-  height: 18px;
+.date-input::-webkit-calendar-picker-indicator {
   cursor: pointer;
-  accent-color: #10b981;
+  filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(130deg) brightness(118%) contrast(119%);
+}
+
+.date-input::-webkit-calendar-picker-indicator:hover {
+  filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(130deg) brightness(130%) contrast(119%);
+}
+
+.checkbox {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  border: 2px solid #555;
+  border-radius: 6px;
+  background: #1a1a1a;
+  position: relative;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.checkbox:checked {
+  border-color: #10b981;
+  background: #1a1a1a;
+}
+
+.checkbox:checked::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -60%) rotate(45deg);
+  width: 5px;
+  height: 10px;
+  border: solid #10b981;
+  border-width: 0 2px 2px 0;
+}
+
+.checkbox:hover {
+  border-color: #10b981;
+}
+
+.checkbox:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
 }
 
 .checkbox-label {
@@ -845,10 +904,10 @@ select.form-input option:hover {
 /* Readonly inputs for equivalent installments */
 .input-percent.readonly,
 .input-amount.readonly {
-  background-color: #f9fafb;
-  border-color: #e5e7eb;
-  color: #6b7280;
-  cursor: not-allowed;
+  background: #1f2937;
+    border-color: #374151;
+    color: #9ca3af;
+    cursor: not-allowed;
 }
 
 .input-percent.readonly:focus,
@@ -861,37 +920,34 @@ select.form-input option:hover {
 /* Tabla de Cronograma Generado */
 .schedule-table {
   margin-top: 30px;
+    border-radius: 0.7rem;
+    overflow: hidden;
+    border: 1px solid #333;
 }
 
 .schedule-table table {
   width: 100%;
-  border-collapse: collapse;
+    border-collapse: collapse;
+}
+
+.schedule-table thead {
+  border: 1px solid #333;
+  border-radius: 0 0 0.7rem 0.7rem;
+  background-color: #0d0d0db3;
 }
 
 .schedule-table th {
   padding: 10px 8px;
-  text-align: left;
+  text-align: center;
   color: white;
   font-size: 12px;
   font-weight: 600;
-  border: 1px solid #444;
-  background: #2d2d2d;
-}
-
-.schedule-table th:nth-child(2),
-.schedule-table th:nth-child(3) {
-  text-align: center;
-}
-
-.schedule-table th:nth-child(4) {
-  text-align: right;
 }
 
 .schedule-table td {
   padding: 10px 8px;
   color: white;
   font-size: 12px;
-  border: 1px solid #444;
 }
 
 .schedule-table td.muted {
@@ -923,6 +979,16 @@ select.form-input option:hover {
 
 .schedule-table .input-date {
   text-align: center;
+  color-scheme: dark;
+}
+
+.schedule-table .input-date::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(130deg) brightness(118%) contrast(119%);
+}
+
+.schedule-table .input-date::-webkit-calendar-picker-indicator:hover {
+  filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(130deg) brightness(130%) contrast(119%);
 }
 
 .schedule-table .input-percent {
@@ -934,7 +1000,6 @@ select.form-input option:hover {
 }
 
 .schedule-table .total-row {
-  background: #2d2d2d;
   font-weight: 600;
 }
 

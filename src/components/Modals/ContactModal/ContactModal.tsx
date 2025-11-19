@@ -358,9 +358,9 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser, quotati
 
   const getTitle = () => {
     switch (type) {
-      case "print": return "Datos para imprimir";
-      case "save": return "Guardar Cronograma (PDF)";
-      case "email": return "Datos para envío por correo";
+      case "print": return "Imprimir cronograma";
+      case "save": return "Guardar cronograma";
+      case "email": return "Enviar por correo";
       default: return "Datos de contacto";
     }
   };
@@ -385,6 +385,7 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser, quotati
             <i className="fas fa-times"></i>
           </button>
         </div>
+        <div className="contact-modal-divider"></div>
 
         <div className="contact-modal-content">
           {(type === "print" || type === "save") ? (
@@ -408,7 +409,7 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser, quotati
 
               <div className="form-section">
                 <h4>Cliente</h4>
-                <div className="input-grid two-cols">
+                <div>
                   <div>
                     <label className="input-label">Nombre*</label>
                     <input
@@ -445,6 +446,8 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser, quotati
                     />
                     {errors.cliente.apellido && <div className="error-message">{errors.cliente.apellido}</div>}
                   </div>
+                </div>
+                <div className="input-grid two-cols">
                   <div>
                     <label className="input-label">Tipo de Documento*</label>
                     <select
@@ -502,8 +505,8 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser, quotati
                         });
                       }}
                     >
-                      {codigosPais.map(({ code, country, flag, digits }) => (
-                        <option key={code} value={code}>{flag} {code} {country} ({digits} dígitos)</option>
+                      {codigosPais.map(({ code, country, flag }) => (
+                        <option key={code} value={code}>{flag} {code} {country}</option>
                       ))}
                     </select>
                   </div>
@@ -529,7 +532,7 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser, quotati
                     {errors.cliente.telefono && <div className="error-message">{errors.cliente.telefono}</div>}
                   </div>
                 </div>
-                <div className="input-group">
+                <div className="input-group" style={{ gap: 0 }}>
                   <label className="input-label">Email*</label>
                   <input
                     type="email"
@@ -548,7 +551,7 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser, quotati
                 </div>
 
                 {/* Vigencia (ancho completo) */}
-                <div className="input-group">
+                <div className="input-group" style={{ gap: 0 }}>
                   <label className="input-label">Vigencia</label>
                   <div className="input-suffix-wrap">
                     <input
@@ -754,7 +757,7 @@ const ContactModal = ({ isVisible, type, onClose, onSubmit, currentUser, quotati
                     {errors.cliente.telefono && <div className="error-message">{errors.cliente.telefono}</div>}
                   </div>
                 </div>
-                <div className="input-group">
+                <div className="input-group" style={{ gap: 0 }}>
                   <label className="input-label">Email*</label>
                   <input
                     type="email"

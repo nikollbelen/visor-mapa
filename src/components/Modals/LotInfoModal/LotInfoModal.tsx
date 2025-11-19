@@ -2776,6 +2776,7 @@ const LotInfoModal = ({
         </div>
           <div className="quotation-title">
             <span>Cotización de Lote</span>
+          <div className="quotation-divider"></div>
           </div>
 
           <div className="section-header">
@@ -2864,7 +2865,7 @@ const LotInfoModal = ({
               </div>
             </div>
 
-            <div className="total-row">
+            <div className="total-row" style={{ display: 'flex' }}>
               <div className="total-label">Total:</div>
               <div className="total-value">
                 ${" "}
@@ -3117,6 +3118,18 @@ const LotInfoModal = ({
                   <div className="form-group">
                     <label className="form-label">Número de Cuotas</label>
                     <div className="input-group">
+                      <div className="checkbox-label">
+                        <input
+                          type="checkbox"
+                          className="checkbox"
+                          checked={equivalentInstallments}
+                          onChange={(e) => {
+                            setEquivalentInstallments(e.target.checked);
+                            setNeedsUpdate(true);
+                          }}
+                        />
+                        <span>Cuotas Equivalentes</span>
+                      </div>
                       <input
                         type="text"
                         className="form-input"
@@ -3132,18 +3145,6 @@ const LotInfoModal = ({
                           setNeedsUpdate(true);
                         }}
                       />
-                      <div className="checkbox-label">
-                        <input
-                          type="checkbox"
-                          className="checkbox"
-                          checked={equivalentInstallments}
-                          onChange={(e) => {
-                            setEquivalentInstallments(e.target.checked);
-                            setNeedsUpdate(true);
-                          }}
-                        />
-                        <span>Cuotas Equivalentes</span>
-                      </div>
                     </div>
                   </div>
 
@@ -3177,7 +3178,6 @@ const LotInfoModal = ({
                 <>
                   <div className="form-group">
                     <label className="form-label">
-                      Separación
                       <input
                         type="checkbox"
                         className="checkbox"
@@ -3190,6 +3190,7 @@ const LotInfoModal = ({
                           setNeedsUpdate(true);
                         }}
                       />
+                      Separación
                     </label>
                     {separation.enabled && (
                       <div className="input-group">
@@ -3337,6 +3338,18 @@ const LotInfoModal = ({
                   <div className="form-group">
                     <label className="form-label">Número de Cuotas</label>
                     <div className="input-group">
+                      <div className="checkbox-label">
+                        <input
+                          type="checkbox"
+                          className="checkbox"
+                          checked={equivalentInstallments}
+                          onChange={(e) => {
+                            setEquivalentInstallments(e.target.checked);
+                            setNeedsUpdate(true);
+                          }}
+                        />
+                        <span>Cuotas Equivalentes</span>
+                      </div>
                       <input
                         type="text"
                         className="form-input"
@@ -3352,18 +3365,6 @@ const LotInfoModal = ({
                           setNeedsUpdate(true);
                         }}
                       />
-                      <div className="checkbox-label">
-                        <span>Cuotas Equivalentes</span>
-                        <input
-                          type="checkbox"
-                          className="checkbox"
-                          checked={equivalentInstallments}
-                          onChange={(e) => {
-                            setEquivalentInstallments(e.target.checked);
-                            setNeedsUpdate(true);
-                          }}
-                        />
-                      </div>
                     </div>
                   </div>
 
@@ -3397,7 +3398,6 @@ const LotInfoModal = ({
                 <>
                   <div className="form-group">
                     <label className="form-label">
-                      Separación
                       <input
                         type="checkbox"
                         className="checkbox"
@@ -3410,6 +3410,7 @@ const LotInfoModal = ({
                           setNeedsUpdate(true);
                         }}
                       />
+                      Separación
                     </label>
                     {separation.enabled && (
                       <div className="input-group">
@@ -3579,13 +3580,13 @@ const LotInfoModal = ({
                     <th>Item</th>
                     <th style={{ textAlign: "center" }}>Fecha</th>
                     <th style={{ textAlign: "center" }}>Porcentaje</th>
-                    <th style={{ textAlign: "right" }}>Monto</th>
+                    <th style={{ textAlign: "center" }}>Monto</th>
                   </tr>
                 </thead>
                 <tbody>
                   {schedule.map((item, index) => (
                     <tr key={index}>
-                      <td>{item.item}</td>
+                      <td style={{ textAlign: "center" }}>{item.item}</td>
                       <td style={{ textAlign: "center" }}>
                         <input
                           type="date"
@@ -3769,14 +3770,14 @@ const LotInfoModal = ({
                     </tr>
                   )}
 
-                  <tr className="total-row">
+                  <tr className="total-row" style={{ borderTop: "1px solid #333" }}>
                     <td colSpan={2}>
                       <strong>TOTAL</strong>
                     </td>
                     <td style={{ textAlign: "center" }}>
                       <strong>100%</strong>
                     </td>
-                    <td style={{ textAlign: "right" }}>
+                    <td style={{ textAlign: "right", color: "#10b981"}}>
                       <strong>
                         $
                         {(
@@ -3792,7 +3793,6 @@ const LotInfoModal = ({
 
             {/* Funcionalidades */}
             <div className="functionalities">
-              <h3>Funcionalidades</h3>
               <div className="function-buttons">
                 <button className="function-btn print" onClick={handlePrint} disabled={!functionalitiesEnabled}> <i className="fas fa-print"></i> Imprimir</button>
                 <button className="function-btn save" onClick={handleSave} disabled={!functionalitiesEnabled}> <i className="fas fa-save"></i> Guardar</button>
