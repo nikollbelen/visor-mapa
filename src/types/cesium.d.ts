@@ -54,5 +54,14 @@ declare global {
     toggleGrid: () => void;
     loteClickHandler?: any;
     setTimeOfDay?: (hour: number) => void;
+    viewer?: any;
+    getId?: (entity: any) => string | undefined;
+    getDireccion?: (entity: any) => string | undefined;
+    getArea?: (entity: any) => number | undefined;
+    getPrecio?: (entity: any) => number | undefined;
+    getEstado?: (entity: any) => string | undefined;
+    getColindancias?: (entity: any) => { left: string; right: string; front: string; back: string };
+    getPhase?: (entity: any) => string | undefined;
+    selectLotByEntity?: (entity: any) => void;
   }
 }

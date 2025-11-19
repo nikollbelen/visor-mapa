@@ -17,6 +17,9 @@ const viewer = new Cesium.Viewer("cesiumContainer", {
   pickTranslucentDepth: true,
 });
 
+// Asignar viewer a window para acceso global
+window.viewer = viewer;
+
 // Global variables for lots
 let lotesPositions = [];
 let processedLots = [];
@@ -578,6 +581,18 @@ async function loadLotesData() {
 
     // Fly to lotes view
     flyToLotesView();
+
+    // Disparar evento cuando Cesium esté completamente cargado
+    console.log('🚀 Cesium completamente cargado, disparando evento cesiumReady');
+    console.log('📊 Total de entidades en datasource:', lotesDataSource.entities.values.length);
+    window.dispatchEvent(new CustomEvent('cesiumReady', {
+      detail: {
+        viewer: viewer,
+        datasource: lotesDataSource,
+        entityCount: lotesDataSource.entities.values.length
+      }
+    }));
+    console.log('✅ Evento cesiumReady disparado');
   } catch (error) {
     console.error("Error loading lotes.geojson:", error);
   }
@@ -2002,6 +2017,51 @@ function closeVideoOverlay() {
   }
 }
 
+// Función para seleccionar un lote por entidad (usada desde URL highlight)
+function selectLotByEntity(entity) {
+  if (!entity || !entity.polygon) return;
+  
+  const fid = getFid(entity);
+  if (fid === undefined) return;
+  
+  // Primero limpiar todo (botones, marcadores, modales, rutas)
+  reiniciarMenu();
+
+  // Select new entity
+  selected = entity;
+  selectedOriginalMaterial = entity._baseMaterial || entity.polygon.material;
+  
+  const btnGrid = document.getElementById("grid");
+  if (btnGrid && btnGrid.classList.contains("active")) {
+    const estadoProp = entity.properties?.estado;
+    const estadoValue =
+      typeof estadoProp?.getValue === "function"
+        ? estadoProp.getValue()
+        : estadoProp;
+    entity.polygon.material = getStatusColor(estadoValue).withAlpha(0.5);
+  } else {
+    entity.polygon.material = modeSelected.withAlpha(0);
+  }
+
+  viewer.scene.requestRender();
+
+  // Disparar evento para mostrar modal del lote
+  window.dispatchEvent(
+    new CustomEvent("loteSelected", {
+      detail: {
+        entity: entity,
+        direccion: getDireccion(entity),
+        area: getArea(entity),
+        precio: getPrecio(entity),
+        estado: getEstado(entity),
+        boundaries: getColindancias(entity),
+        id: getId(entity),
+        phase: getPhase(entity),
+      },
+    })
+  );
+}
+
 // Expose additional functions globally
 window.hoverMarcadores = hoverMarcadores;
 window.clearRoute = clearRoute;
@@ -2012,6 +2072,7 @@ window.handleAreasComunes = handleAreasComunes;
 window.handleLotes = handleLotes;
 window.handleEntorno = handleEntorno;
 window.handleVideo = handleVideo;
+window.selectLotByEntity = selectLotByEntity;
 window.clickMarcadores360 = clickMarcadores360;
 window.openOverlay360 = openOverlay360;
 window.closeOverlay360 = closeOverlay360;

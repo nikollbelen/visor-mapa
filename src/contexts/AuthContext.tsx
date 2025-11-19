@@ -516,6 +516,80 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
   }, [token, logout, checkAuthStatus]);
 
+  // Verificación en tiempo real para detectar cierre de sesión en el dashboard
+  useEffect(() => {
+    if (!token) return;
+
+    const POLLING_INTERVAL = 2000; // Verificar cada 2 segundos para tiempo real
+    let lastCheckTime = 0;
+    const CHECK_COOLDOWN = 1000; // No verificar más de una vez cada segundo
+    let isChecking = false; // Flag para evitar verificaciones simultáneas
+
+    const checkSessionStatus = async () => {
+      const currentTime = Date.now();
+      
+      // Evitar múltiples verificaciones simultáneas
+      if (isChecking || (currentTime - lastCheckTime < CHECK_COOLDOWN)) {
+        return;
+      }
+
+      const currentToken = tokenRef.current;
+      const savedToken = localStorage.getItem('auth_token');
+      
+      // Si no hay token actual o el token cambió, no hacer nada
+      if (!currentToken || savedToken !== currentToken) return;
+      
+      isChecking = true;
+      lastCheckTime = currentTime;
+
+      try {
+        // Verificar el estado de autenticación con /users/me
+        // Si la sesión fue cerrada en el dashboard, este endpoint retornará 401/403
+        const { isValid, user: userData } = await checkAuthStatus(currentToken);
+        
+        if (isValid && userData) {
+          // Sesión sigue activa, actualizar datos del usuario si cambiaron
+          const currentUser = JSON.parse(localStorage.getItem('auth_user') || '{}');
+          if (currentUser.id !== userData.id) {
+            setUser(userData);
+            localStorage.setItem('auth_user', JSON.stringify(userData));
+          }
+        } else {
+          // Sesión cerrada en el dashboard o token inválido
+          console.info('Sesión cerrada en el dashboard detectada en tiempo real, cerrando sesión local');
+          logout();
+        }
+      } catch (error) {
+        console.error('Error verificando estado de sesión:', error);
+        // En caso de error de red, no cerrar sesión (podría ser un problema temporal)
+      } finally {
+        isChecking = false;
+      }
+    };
+
+    // Verificar inmediatamente y luego periódicamente
+    checkSessionStatus();
+    const intervalId = setInterval(checkSessionStatus, POLLING_INTERVAL);
+
+    // Verificar también después de interacciones del usuario para detección inmediata
+    const handleUserInteraction = () => {
+      checkSessionStatus();
+    };
+
+    // Agregar listeners para interacciones del usuario
+    const events = ['click', 'keydown', 'mousemove', 'scroll', 'touchstart'];
+    events.forEach(event => {
+      document.addEventListener(event, handleUserInteraction, { passive: true });
+    });
+
+    return () => {
+      clearInterval(intervalId);
+      events.forEach(event => {
+        document.removeEventListener(event, handleUserInteraction);
+      });
+    };
+  }, [token, logout, checkAuthStatus]);
+
   const value: AuthContextType = {
     user,
     token,

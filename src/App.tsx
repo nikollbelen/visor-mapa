@@ -16,8 +16,13 @@ import TimeOfDayControl from "./components/Overlays/TimeOfDayControl/TimeOfDayCo
 
 function AppContent() {
   const { user } = useAuth();
-  const [showSplash, setShowSplash] = useState(true);
-  const [showInstructions, setShowInstructions] = useState(true);
+  
+  // Verificar si hay highlight en la URL al inicializar
+  const urlParams = new URLSearchParams(window.location.search);
+  const hasHighlight = urlParams.get('highlight') !== null;
+  
+  const [showSplash, setShowSplash] = useState(true); // Siempre mostrar splash al inicio
+  const [showInstructions, setShowInstructions] = useState(!hasHighlight); // Solo ocultar instrucciones si hay highlight
   const [selectedLote, setSelectedLote] = useState(null);
   const [showLotInfoModal, setShowLotInfoModal] = useState(false);
   const [showPhotos360, setShowPhotos360] = useState(false);
@@ -136,6 +141,99 @@ function AppContent() {
     setAreasImageSrc("");
     setEntornoData(null);
   };
+
+  // Función para seleccionar un lote por ID desde la URL
+  // Usa la misma lógica que el click handler existente
+  const selectLotById = useCallback((lotId: string) => {
+    let attempts = 0;
+    const maxAttempts = 60; // Máximo 30 segundos (60 * 500ms)
+    
+    const performSelection = () => {
+      attempts++;
+      
+      // Verificar que las funciones necesarias estén disponibles
+      if (!window.viewer || !window.getId || !window.selectLotByEntity) {
+        if (attempts < maxAttempts) {
+          setTimeout(performSelection, 500);
+        }
+        return;
+      }
+
+      try {
+        // Obtener todas las entidades del datasource
+        const datasource = window.viewer.dataSources.get(0);
+        if (!datasource || !datasource.entities || datasource.entities.values.length === 0) {
+          if (attempts < maxAttempts) {
+            setTimeout(performSelection, 500);
+          }
+          return;
+        }
+
+        const allEntities = datasource.entities.values;
+        
+        // Buscar la entidad con el ID especificado
+        const lotIdStr = String(lotId).trim();
+        const lotEntity = allEntities.find((entity) => {
+          if (!entity || !entity.polygon) return false;
+          try {
+            const entityId = window.getId!(entity);
+            return entityId ? String(entityId).trim() === lotIdStr : false;
+          } catch (e) {
+            return false;
+          }
+        });
+
+        if (lotEntity && window.selectLotByEntity) {
+          // Usar la función existente que hace toda la lógica de selección
+          // (limpiar menú, seleccionar polígono, cambiar material, disparar evento)
+          window.selectLotByEntity(lotEntity);
+        } else {
+          // Si no se encuentra, seguir intentando
+          if (attempts < maxAttempts) {
+            setTimeout(performSelection, 500);
+          }
+        }
+      } catch (error) {
+        console.error('Error al seleccionar lote por ID:', error);
+        if (attempts < maxAttempts) {
+          setTimeout(performSelection, 500);
+        }
+      }
+    };
+
+    // Esperar el evento cesiumReady antes de intentar seleccionar
+    const handleCesiumReady = () => {
+      // Esperar un poco para asegurar que todo esté completamente cargado
+      setTimeout(performSelection, 2000);
+      window.removeEventListener('cesiumReady', handleCesiumReady);
+    };
+    
+    if (window.viewer && window.getId && window.selectLotByEntity) {
+      // Si ya está listo, empezar después de un delay
+      setTimeout(performSelection, 2000);
+    } else {
+      // Si no está listo, esperar el evento
+      window.addEventListener('cesiumReady', handleCesiumReady);
+    }
+  }, []);
+
+  // Verificar parámetro highlight en la URL al cargar
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const highlightId = urlParams.get('highlight');
+    
+    if (highlightId) {
+      // La función selectLotById esperará el evento cesiumReady antes de seleccionar
+      selectLotById(highlightId);
+      
+      // Limpiar el parámetro de la URL después de usarlo (con un delay para asegurar que se procese)
+      setTimeout(() => {
+        urlParams.delete('highlight');
+        const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+        window.history.replaceState({}, document.title, newUrl);
+      }, 2000);
+    }
+  }, [selectLotById]);
 
   // Escuchar eventos de Cesium
   useEffect(() => {
