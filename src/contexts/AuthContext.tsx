@@ -33,7 +33,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   tokenLogin: (tempToken: string) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
   mustChangePassword: boolean;
 }
 
@@ -301,7 +301,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   // Función de logout estable con useCallback para evitar recreaciones
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+    const normalizedBase = apiBaseUrl?.replace(/\/$/, '') || '';
+    const currentToken = tokenRef.current;
+
+    if (currentToken && normalizedBase) {
+      console.info('[Auth] Enviando logout al backend...');
+      try {
+        const originalFetch = (window as any).__originalFetch || window.fetch;
+        const response = await originalFetch(`${normalizedBase}/users/logout`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${currentToken}`,
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true'
+          },
+          body: JSON.stringify({})
+        });
+        try {
+          const data = await response.clone().json();
+          console.info('[Auth] Respuesta logout:', data);
+        } catch (parseError) {
+          console.warn('[Auth] No se pudo parsear la respuesta de logout como JSON.', parseError);
+        }
+      } catch (error) {
+        console.error('Error enviando logout al backend:', error);
+      } finally {
+        console.info('[Auth] Petición de logout enviada (o intentada).');
+      }
+    }
+
     // Limpiar estado
     setUser(null);
     setToken(null);
