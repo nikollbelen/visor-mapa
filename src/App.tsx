@@ -173,7 +173,7 @@ function AppContent() {
         
         // Buscar la entidad con el ID especificado
         const lotIdStr = String(lotId).trim();
-        const lotEntity = allEntities.find((entity) => {
+        const lotEntity = allEntities.find((entity: any) => {
           if (!entity || !entity.polygon) return false;
           try {
             const entityId = window.getId!(entity);
