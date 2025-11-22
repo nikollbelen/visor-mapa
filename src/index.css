@@ -1,3 +1,20 @@
+/* ===== FUENTES PERSONALIZADAS ===== */
+@font-face {
+  font-family: "Helvetica Neue";
+  src: url("/font/HelveticaNeueRegular.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Helvetica Neue";
+  src: url("/font/HelveticaNeueBold.otf") format("opentype");
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* Reset básico sin afectar Cesium */
 html, body {
   margin: 0;
@@ -173,4 +190,52 @@ body {
     display: none;
     opacity: 0;
   } 
+}
+
+/* ===== ESTILOS GLOBALES PARA DROPDOWNS (SELECT) ===== */
+/* Normalizar estilos de select entre navegadores */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  color-scheme: dark;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+/* Estilos para opciones de select */
+select option {
+  background: #1a1a1a;
+  color: white;
+  padding: 8px 12px;
+}
+
+select option:checked {
+  background: #10b981;
+  color: white;
+}
+
+select option:hover {
+  background: #10b981;
+  color: white;
+}
+
+/* Firefox específico */
+@-moz-document url-prefix() {
+  select {
+    background-image: none;
+  }
+  
+  select option {
+    background-color: #1a1a1a;
+    color: white;
+  }
+}
+
+/* Webkit (Chrome, Safari, Edge) específico */
+select::-ms-expand {
+  display: none;
+}
+
+select::-webkit-select-arrow {
+  display: none;
 }

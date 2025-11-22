@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import SidebarItem from './SidebarItem';
 import LoginModal from '../Modals/LoginModal/LoginModal';
@@ -12,6 +12,7 @@ const Sidebar = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isUserInfoModalOpen, setIsUserInfoModalOpen] = useState(false);
+  const previousUserRef = useRef(user);
 
 
   // Detectar si es móvil o tablet
@@ -62,11 +63,29 @@ const Sidebar = () => {
   const handleLogout = () => {
     logout();
     setIsUserInfoModalOpen(false);
+    // Abrir modal de login después del logout
+    setIsLoginModalOpen(true);
   };
 
   const handleCloseUserInfoModal = () => {
     setIsUserInfoModalOpen(false);
   };
+
+  // Efecto para mostrar el modal de login cuando el usuario se desloguea
+  useEffect(() => {
+    // Solo mostrar el modal si había un usuario antes y ahora no lo hay (logout automático)
+    // No mostrar si nunca hubo usuario (carga inicial)
+    const hadUserBefore = previousUserRef.current !== null;
+    const hasUserNow = user !== null;
+    
+    if (hadUserBefore && !hasUserNow && !isLoginModalOpen && !isUserInfoModalOpen) {
+      // El usuario se deslogueó (probablemente por expiración de token o logout automático)
+      setIsLoginModalOpen(true);
+    }
+    
+    // Actualizar la referencia para el próximo render
+    previousUserRef.current = user;
+  }, [user, isLoginModalOpen, isUserInfoModalOpen]);
 
   const handleItemClick = (itemId: string) => {
     // Si es el botón de usuario

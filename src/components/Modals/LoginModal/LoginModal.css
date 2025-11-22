@@ -64,7 +64,7 @@
 
 .login-logo { width: 72px; height: auto; }
 .login-title { font-size: 3rem; font-weight: 700; margin: 8px 0 0; }
-.login-subtitle { color: #c9c9c9; margin: 0 0 20px; }
+.login-subtitle { color: #99a1af; margin: 0 0 20px; }
 .forgot-desc { max-width: 520px; }
 
 .login-form {
@@ -89,29 +89,42 @@
 }
 
 .login-form .form-input {
-  padding: 12px 16px;
-  border: 1px solid #3a3a3a;
-  border-radius: 10px;
-  font-size: 0.875rem;
-  background: #0f0f0f;
+  background: #0d0d0db3;
   color: white;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 13px;
+  outline: none;
   transition: all 0.3s;
-}
-
-.login-form .form-input::placeholder {
-  color: #aaa;
+  /* Prevenir que el navegador cambie los colores al autocompletar */
+  -webkit-text-fill-color: white;
 }
 
 .login-form .form-input:focus {
-  outline: none;
-  border-color: #2a8f69;
-  background: #111;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+  border-color: #10b981;
 }
 
-.login-form .form-input:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+/* Estilos para autocompletado del navegador */
+.login-form .form-input:-webkit-autofill,
+.login-form .form-input:-webkit-autofill:hover,
+.login-form .form-input:-webkit-autofill:focus,
+.login-form .form-input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px #000000f0 inset !important;
+  -webkit-text-fill-color: white !important;
+  background-color: #0d0d0db3 !important;
+  color: white !important;
+  caret-color: white !important;
+}
+
+.login-form .form-input.error:-webkit-autofill,
+.login-form .form-input.error:-webkit-autofill:hover,
+.login-form .form-input.error:-webkit-autofill:focus,
+.login-form .form-input.error:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px #000000f0 inset !important;
+  -webkit-text-fill-color: white !important;
+  background-color: #0d0d0db3 !important;
+  color: white !important;
 }
 
 .login-form .form-input.error {

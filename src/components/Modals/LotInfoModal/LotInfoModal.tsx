@@ -2158,7 +2158,7 @@ const LotInfoModal = ({
         <title>Cotización de Lote</title>
         <style>
           body { 
-            font-family: Arial, sans-serif; 
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; 
             margin: 0; 
             padding: 20px; 
             padding-top: 0;

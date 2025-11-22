@@ -47,12 +47,12 @@ function getLabelFont() {
   const deviceType = getDeviceType();
   switch (deviceType) {
     case 'mobile':
-      return "700 8pt Arial, sans-serif";
+      return '700 8pt "Helvetica Neue", Helvetica, Arial, sans-serif';
     case 'tablet':
-      return "800 8pt Arial, sans-serif";
+      return '800 8pt "Helvetica Neue", Helvetica, Arial, sans-serif';
     case 'desktop':
     default:
-      return "900 9pt Arial, sans-serif";
+      return '900 9pt "Helvetica Neue", Helvetica, Arial, sans-serif';
   }
 }
 
@@ -1311,7 +1311,7 @@ async function handleAreasComunes() {
           },
           label: {
             text: name,
-            font: "bold 12pt sans-serif",
+            font: 'bold 12pt "Helvetica Neue", Helvetica, Arial, sans-serif',
             fillColor: window.Cesium.Color.WHITE,
             outlineColor: window.Cesium.Color.BLACK,
             outlineWidth: 2,

@@ -112,13 +112,13 @@ const LoginModal = ({ isVisible, onClose }: LoginModalProps) => {
         <div className="login-hero">
           <img
             className="login-logo"
-            src="/images/init/init-logo.svg"
+            src="/images/init/init-smallicon.svg"
             alt="logo"
           />
           {!showForgot ? (
             <>
-              <h1 className="login-title">Bienvenido</h1>
-              <p className="login-subtitle">Por favor, ingresa los datos requeridos</p>
+              <h1 className="login-title">Bienvenido a Reveal</h1>
+              <p className="login-subtitle">El visor inmersivo que conecta tus proyectos con la realidad</p>
             </>
           ) : (
             <>

@@ -36,12 +36,21 @@ function AppContent() {
   const [showEntornoModal, setShowEntornoModal] = useState(false);
   const [entornoData, setEntornoData] = useState<any>(null);
   const [showVideoOverlay, setShowVideoOverlay] = useState(false);
+  // Rastrear si LotSearchModal estaba abierto cuando se abrió LotInfoModal
+  const [wasLotSearchModalOpen, setWasLotSearchModalOpen] = useState(false);
 
 
   // Handlers para eventos de Cesium
   const handleLoteSelected = useCallback(
     (event: CustomEvent) => {
       const loteData = event.detail;
+
+      // Verificar si LotSearchModal está visible en el DOM (más confiable que el estado)
+      const lotSearchModalElement = document.getElementById('lotSearchModalOverlay');
+      const isSearchModalVisible = lotSearchModalElement && lotSearchModalElement.offsetParent !== null;
+      
+      // Guardar si LotSearchModal estaba abierto antes de abrir LotInfoModal
+      setWasLotSearchModalOpen(isSearchModalVisible || showLotSearchModal);
 
       // Forzar re-renderizado cerrando y abriendo el modal
       setShowLotInfoModal(false);
@@ -52,7 +61,7 @@ function AppContent() {
         setShowLotInfoModal(true);
       }, 10);
     },
-    [showLotInfoModal, selectedLote]
+    [showLotInfoModal, selectedLote, showLotSearchModal]
   );
 
   const handleOpenPhotos360 = (event: CustomEvent) => {
@@ -341,9 +350,39 @@ function AppContent() {
 
   const handleLotInfoModalClose = () => {
     setShowLotInfoModal(false);
-    // Limpiar estado en Cesium
-    if (window.reiniciarMenu) {
-      window.reiniciarMenu();
+    setSelectedLote(null);
+    
+    // Verificar si LotSearchModal estaba abierto cuando se abrió LotInfoModal
+    // Usar el estado guardado Y verificar si el modal está visible en el DOM como respaldo
+    const lotSearchModalElement = document.getElementById('lotSearchModalOverlay');
+    const shouldReopenSearch = wasLotSearchModalOpen || (lotSearchModalElement && lotSearchModalElement.offsetParent !== null);
+    
+    if (shouldReopenSearch) {
+      // Usar un pequeño delay para asegurar que el modal se cierre primero
+      setTimeout(() => {
+        // Activar el botón del sidebar y abrir el modal correctamente
+        // handleLotes() activa el botón, vuela a la vista de lotes, y dispara el evento openLotSearchModal
+        if (window.handleLotes) {
+          window.handleLotes();
+        } else {
+          // Fallback: activar botón manualmente y abrir modal
+          const lotesBtn = document.getElementById("lotes");
+          if (lotesBtn) {
+            lotesBtn.classList.add("active");
+          }
+          setShowLotSearchModal(true);
+          // Cargar datos de lotes cuando se vuelve a abrir el modal
+          if (window.loadLotData) {
+            window.loadLotData();
+          }
+        }
+      }, 150);
+      setWasLotSearchModalOpen(false);
+    } else {
+      // Si no venimos de LotSearchModal, limpiar estado en Cesium
+      if (window.reiniciarMenu) {
+        window.reiniciarMenu();
+      }
     }
   };
 
@@ -372,6 +411,8 @@ function AppContent() {
 
   const handleLotSearchModalClose = () => {
     setShowLotSearchModal(false);
+    // Resetear el flag cuando se cierra LotSearchModal
+    setWasLotSearchModalOpen(false);
     // Limpiar estado en Cesium
     if (window.reiniciarMenu) {
       window.reiniciarMenu();
