@@ -744,6 +744,10 @@ select.form-input {
   -moz-appearance: none;
   color-scheme: dark;
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  cursor: pointer;
+  pointer-events: all;
+  position: relative;
+  z-index: 10;
 }
 
 select.form-input:focus {
@@ -751,20 +755,51 @@ select.form-input:focus {
   box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
 }
 
+select.form-input:not(:disabled) {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
 select.form-input option {
-  background: #1a1a1a;
-  color: white;
+  background: #1a1a1a !important;
+  color: white !important;
   padding: 10px;
 }
 
 select.form-input option:checked {
-  background: #10b981;
-  color: white;
+  background: #10b981 !important;
+  color: white !important;
 }
 
-select.form-input option:hover {
-  background: #10b981;
-  color: white;
+select.form-input option:hover,
+select.form-input option:focus {
+  background: #10b981 !important;
+  color: white !important;
+}
+
+/* Firefox específico para select en LotInfoModal */
+@-moz-document url-prefix() {
+  select.form-input {
+    cursor: pointer;
+    pointer-events: auto;
+    -moz-appearance: none;
+    background-image: none;
+  }
+  
+  select.form-input:not(:disabled) {
+    pointer-events: auto;
+  }
+  
+  select.form-input option {
+    background-color: #1a1a1a !important;
+    color: white !important;
+  }
+  
+  select.form-input option:checked,
+  select.form-input option:hover {
+    background-color: #10b981 !important;
+    color: white !important;
+  }
 }
 
 .date-input {

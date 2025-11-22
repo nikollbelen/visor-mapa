@@ -2589,6 +2589,25 @@ const LotInfoModal = ({
     setQuotationCodeForModal(undefined);
   }, [isVisible, loteData]);
 
+  // Asegurar que el modal tenga display: none cuando no es visible (especialmente para Firefox)
+  useEffect(() => {
+    const modalElement = document.getElementById("modalOverlay");
+    if (modalElement) {
+      if (!isVisible) {
+        // Esperar a que termine la animación antes de establecer display: none
+        const timer = setTimeout(() => {
+          if (modalElement.classList.contains("hide")) {
+            modalElement.style.display = "none";
+          }
+        }, 400); // Tiempo de la animación
+        return () => clearTimeout(timer);
+      } else {
+        // Cuando es visible, asegurar que no tenga display: none inline
+        modalElement.style.display = "";
+      }
+    }
+  }, [isVisible]);
+
   return (
     <div
       className={`lot-modal background-container border-container ${ isVisible ? 'show' : 'hide' }`}

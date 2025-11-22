@@ -170,6 +170,10 @@
   -moz-appearance: none;
   color-scheme: dark;
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  cursor: pointer;
+  pointer-events: all;
+  position: relative;
+  z-index: 10;
 }
 
 .contact-form select.form-input:focus {
@@ -177,20 +181,51 @@
   box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
 }
 
+.contact-form select.form-input:not(:disabled) {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
 .contact-form select.form-input option {
-  background: #1a1a1a;
-  color: white;
+  background: #1a1a1a !important;
+  color: white !important;
   padding: 10px;
 }
 
 .contact-form select.form-input option:checked {
-  background: #10b981;
-  color: white;
+  background: #10b981 !important;
+  color: white !important;
 }
 
-.contact-form select.form-input option:hover {
-  background: #10b981;
-  color: white;
+.contact-form select.form-input option:hover,
+.contact-form select.form-input option:focus {
+  background: #10b981 !important;
+  color: white !important;
+}
+
+/* Firefox específico para select en ContactModal */
+@-moz-document url-prefix() {
+  .contact-form select.form-input {
+    cursor: pointer;
+    pointer-events: auto;
+    -moz-appearance: none;
+    background-image: none;
+  }
+  
+  .contact-form select.form-input:not(:disabled) {
+    pointer-events: auto;
+  }
+  
+  .contact-form select.form-input option {
+    background-color: #1a1a1a !important;
+    color: white !important;
+  }
+  
+  .contact-form select.form-input option:checked,
+  .contact-form select.form-input option:hover {
+    background-color: #10b981 !important;
+    color: white !important;
+  }
 }
 
 .error-message {

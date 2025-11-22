@@ -175,6 +175,7 @@ body {
 
 .hide {
   animation: hideModal 0.4s ease-in-out forwards;
+  display: none !important; /* Firefox necesita display: none explícito */
 }
 
 @keyframes hideModal {
@@ -200,34 +201,53 @@ select {
   -moz-appearance: none;
   color-scheme: dark;
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  cursor: pointer;
+  pointer-events: all;
+  position: relative;
+  z-index: 1;
 }
 
 /* Estilos para opciones de select */
 select option {
-  background: #1a1a1a;
-  color: white;
+  background: #1a1a1a !important;
+  color: white !important;
   padding: 8px 12px;
 }
 
 select option:checked {
-  background: #10b981;
-  color: white;
+  background: #10b981 !important;
+  color: white !important;
 }
 
-select option:hover {
-  background: #10b981;
-  color: white;
+select option:hover,
+select option:focus {
+  background: #10b981 !important;
+  color: white !important;
 }
 
-/* Firefox específico */
+/* Firefox específico - Mejoras para compatibilidad */
 @-moz-document url-prefix() {
   select {
     background-image: none;
+    cursor: pointer;
+    pointer-events: all;
+    -moz-appearance: none;
   }
   
   select option {
-    background-color: #1a1a1a;
-    color: white;
+    background-color: #1a1a1a !important;
+    color: white !important;
+  }
+  
+  select option:checked,
+  select option:hover {
+    background-color: #10b981 !important;
+    color: white !important;
+  }
+  
+  /* Asegurar que el select sea clickeable en Firefox */
+  select:not(:disabled) {
+    pointer-events: auto;
   }
 }
 

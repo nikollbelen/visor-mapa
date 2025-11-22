@@ -1107,6 +1107,12 @@ function reiniciarMenu() {
   if (modalOverlay) if (modalOverlay.classList.contains("show")) {
     modalOverlay.classList.remove("show");
     modalOverlay.classList.add("hide");
+    // Firefox necesita display: none explícito para no bloquear clics
+    setTimeout(() => {
+      if (modalOverlay.classList.contains("hide")) {
+        modalOverlay.style.display = "none";
+      }
+    }, 400); // Después de la animación
   }
   if (overlay360) overlay360.style.display = "none";
   if (commonAreasModalOverlay) commonAreasModalOverlay.style.display = "none";

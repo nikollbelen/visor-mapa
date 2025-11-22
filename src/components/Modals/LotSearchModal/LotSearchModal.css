@@ -394,6 +394,13 @@
 
 .dropdown-container {
   position: relative;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+/* Asegurar que el contenedor no bloquee los clics */
+.dropdown-container * {
+  pointer-events: auto;
 }
 
 .sort-dropdown {
@@ -410,6 +417,9 @@
   -moz-appearance: none;
   color-scheme: dark;
   font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  pointer-events: all;
+  position: relative;
+  z-index: 10;
 }
 
 .sort-dropdown:focus {
@@ -418,20 +428,51 @@
   box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
 }
 
+.sort-dropdown:not(:disabled) {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
 .sort-dropdown option {
-  background: #1a1a1a;
-  color: white;
+  background: #1a1a1a !important;
+  color: white !important;
   padding: 10px;
 }
 
 .sort-dropdown option:checked {
-  background: #10b981;
-  color: white;
+  background: #10b981 !important;
+  color: white !important;
 }
 
-.sort-dropdown option:hover {
-  background: #10b981;
-  color: white;
+.sort-dropdown option:hover,
+.sort-dropdown option:focus {
+  background: #10b981 !important;
+  color: white !important;
+}
+
+/* Firefox específico para sort-dropdown */
+@-moz-document url-prefix() {
+  .sort-dropdown {
+    cursor: pointer;
+    pointer-events: auto;
+    -moz-appearance: none;
+    background-image: none;
+  }
+  
+  .sort-dropdown:not(:disabled) {
+    pointer-events: auto;
+  }
+  
+  .sort-dropdown option {
+    background-color: #1a1a1a !important;
+    color: white !important;
+  }
+  
+  .sort-dropdown option:checked,
+  .sort-dropdown option:hover {
+    background-color: #10b981 !important;
+    color: white !important;
+  }
 }
 
 .results-section {
