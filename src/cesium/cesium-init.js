@@ -340,26 +340,6 @@ async function loadLotesData() {
           precioNum = p.precio;
         }
 
-        // Calculate maximum price
-        if (precioNum > maxPrice) {
-          maxPrice = precioNum;
-        }
-
-        // Calculate minimum price (only for first valid lot or if current is smaller)
-        if (minPrice === 0 || precioNum < minPrice) {
-          minPrice = precioNum;
-        }
-
-        // Calculate maximum area
-        if (areaNum > maxArea) {
-          maxArea = areaNum;
-        }
-
-        // Calculate minimum area (only for first valid lot or if current is smaller)
-        if (minArea === 0 || areaNum < minArea) {
-          minArea = areaNum;
-        }
-
         const estado = p.estado || "disponible";
         const manzana = p.manzana || "";
         const lote = p.lote || "";
@@ -1421,6 +1401,40 @@ window.getMinPrice = function () {
 
 window.getMinArea = function () {
   return minArea;
+};
+
+window.setLotRangeConfig = function (config = {}) {
+  const { maxPrice: cfgMaxPrice, minPrice: cfgMinPrice, maxArea: cfgMaxArea, minArea: cfgMinArea } =
+    config;
+
+  const parseValue = (value) => {
+    if (typeof value === "number") {
+      return value;
+    }
+    if (typeof value === "string") {
+      const parsed = parseFloat(value);
+      return isNaN(parsed) ? undefined : parsed;
+    }
+    return undefined;
+  };
+
+  const normalizedMaxPrice = parseValue(cfgMaxPrice);
+  const normalizedMinPrice = parseValue(cfgMinPrice);
+  const normalizedMaxArea = parseValue(cfgMaxArea);
+  const normalizedMinArea = parseValue(cfgMinArea);
+
+  if (normalizedMaxPrice !== undefined) {
+    maxPrice = normalizedMaxPrice;
+  }
+  if (normalizedMinPrice !== undefined) {
+    minPrice = normalizedMinPrice;
+  }
+  if (normalizedMaxArea !== undefined) {
+    maxArea = normalizedMaxArea;
+  }
+  if (normalizedMinArea !== undefined) {
+    minArea = normalizedMinArea;
+  }
 };
 
 function handleLotes() {

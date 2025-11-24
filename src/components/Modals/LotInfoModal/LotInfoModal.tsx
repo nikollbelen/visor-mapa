@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   addMonths,
   format,
@@ -18,6 +18,319 @@ interface LotInfoModalProps {
   currentUser?: {id: string; full_name?: string; email: string} | null;
 }
 
+const canUseDom = typeof window !== "undefined" && typeof document !== "undefined";
+
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+
+const escapeAttribute = (value: string) =>
+  escapeHtml(value.replace(/'/g, "&#39;"));
+
+const sanitizeNotesHtml = (input: string) => {
+  if (!input || typeof input !== "string") return "";
+  if (!canUseDom) return input;
+
+  const template = document.createElement("template");
+  template.innerHTML = input;
+
+  const sanitizeNode = (node: ChildNode): string => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return escapeHtml(node.textContent || "");
+    }
+
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const element = node as HTMLElement;
+      const tagName = element.tagName.toUpperCase();
+      const children = Array.from(element.childNodes)
+        .map(sanitizeNode)
+        .join("");
+
+      switch (tagName) {
+        case "P":
+        case "STRONG":
+        case "EM":
+        case "B":
+        case "I":
+        case "U":
+        case "A":
+        case "UL":
+        case "OL":
+        case "LI":
+        case "SPAN":
+        case "DIV":
+        case "BR":
+          break;
+        default:
+          return children;
+      }
+
+      if (tagName === "BR") {
+        return "<br />";
+      }
+
+      if (tagName === "A") {
+        const href = element.getAttribute("href") || "#";
+        const rel = element.getAttribute("rel") || "noopener noreferrer";
+        const target = element.getAttribute("target") || "_blank";
+        return `<a href="${escapeAttribute(href)}" rel="${escapeAttribute(
+          rel
+        )}" target="${escapeAttribute(target)}">${children}</a>`;
+      }
+
+      return `<${tagName.toLowerCase()}>${children}</${tagName.toLowerCase()}>`;
+    }
+
+    return "";
+  };
+
+  return Array.from(template.content.childNodes).map(sanitizeNode).join("").trim();
+};
+
+type NoteSegment = {
+  text?: string;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  linkHref?: string;
+  isNewline?: boolean;
+};
+
+type NoteLine = {
+  runs: NoteSegment[];
+};
+
+const parseNotesHtmlToSegments = (html: string): NoteSegment[] => {
+  if (!html || !canUseDom) {
+    return html
+      ? [{ text: html.replace(/<[^>]+>/g, " "), bold: false, italic: false, underline: false }]
+      : [];
+  }
+
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  const segments: NoteSegment[] = [];
+
+  const pushNewline = () => {
+    if (!segments.length || segments[segments.length - 1]?.isNewline) return;
+    segments.push({ isNewline: true });
+  };
+
+  const normalizeText = (text: string) => text.replace(/\s+/g, " ");
+
+  const traverse = (node: ChildNode, style: NoteSegment) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const textContent = normalizeText(node.textContent || "");
+      if (textContent.trim()) {
+        segments.push({
+          text: textContent,
+          bold: style.bold,
+          italic: style.italic,
+          underline: style.underline,
+          linkHref: style.linkHref,
+        });
+      }
+      return;
+    }
+
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    const element = node as HTMLElement;
+    const tagName = element.tagName.toUpperCase();
+
+    if (tagName === "BR") {
+      segments.push({ isNewline: true });
+      return;
+    }
+
+    if (tagName === "UL" || tagName === "OL") {
+      const items = Array.from(element.children).filter(
+        (child) => child.tagName && child.tagName.toUpperCase() === "LI"
+      );
+      items.forEach((item, index) => {
+        const prefix = tagName === "OL" ? `${index + 1}. ` : "• ";
+        segments.push({
+          text: prefix,
+          bold: style.bold,
+          italic: style.italic,
+          underline: style.underline,
+          linkHref: style.linkHref,
+        });
+        Array.from(item.childNodes).forEach((child) =>
+          traverse(child, { ...style })
+        );
+        segments.push({ isNewline: true });
+      });
+      pushNewline();
+      return;
+    }
+
+    const nextStyle = { ...style };
+    if (tagName === "STRONG" || tagName === "B") nextStyle.bold = true;
+    if (tagName === "EM" || tagName === "I") nextStyle.italic = true;
+    if (tagName === "U") nextStyle.underline = true;
+    if (tagName === "A") {
+      nextStyle.underline = true;
+      nextStyle.linkHref = element.getAttribute("href") || undefined;
+    }
+
+    const blockLevel = ["P", "DIV", "LI"].includes(tagName);
+
+    Array.from(element.childNodes).forEach((child) => traverse(child, nextStyle));
+
+    if (blockLevel) {
+      pushNewline();
+    }
+  };
+
+  Array.from(template.content.childNodes).forEach((child) =>
+    traverse(child, {})
+  );
+
+  return segments;
+};
+
+const layoutNoteSegmentsForPdf = (
+  pdfInstance: jsPDF,
+  segments: NoteSegment[],
+  maxWidth: number,
+  lineHeight: number,
+  fontSize: number
+): { lines: NoteLine[]; totalHeight: number } => {
+  if (!segments.length) {
+    return { lines: [], totalHeight: 0 };
+  }
+
+  const lines: NoteLine[] = [];
+  let currentLine: NoteSegment[] = [];
+  let currentWidth = 0;
+  let previousWasNewline = false;
+
+  const getFontVariant = (segment: NoteSegment) => {
+    if (segment.bold && segment.italic) return "bolditalic";
+    if (segment.bold) return "bold";
+    if (segment.italic) return "italic";
+    return "normal";
+  };
+
+  const measure = (text: string, segment: NoteSegment) => {
+    const variant = getFontVariant(segment);
+    pdfInstance.setFont("helvetica", variant as any);
+    pdfInstance.setFontSize(fontSize);
+    return pdfInstance.getTextWidth(text);
+  };
+
+  const flushLine = () => {
+    lines.push({ runs: currentLine });
+    currentLine = [];
+    currentWidth = 0;
+  };
+
+  const addToken = (text: string, segment: NoteSegment) => {
+    if (!text) return;
+    const isWhitespace = /^\s+$/.test(text);
+    if (isWhitespace && !currentLine.length) {
+      return;
+    }
+    const width = measure(text, segment);
+    if (!isWhitespace && currentWidth + width > maxWidth && currentLine.length) {
+      flushLine();
+    }
+    currentLine.push({
+      text,
+      bold: segment.bold,
+      italic: segment.italic,
+      underline: segment.underline,
+      linkHref: segment.linkHref,
+    });
+    currentWidth += width;
+    previousWasNewline = false;
+  };
+
+  segments.forEach((segment) => {
+    if (segment.isNewline) {
+      if (currentLine.length) {
+        flushLine();
+      } else if (!previousWasNewline) {
+        lines.push({ runs: [] });
+      }
+      previousWasNewline = true;
+      return;
+    }
+
+    if (!segment.text) return;
+    const parts = segment.text.split(/(\s+)/);
+    parts.forEach((part) => {
+      if (part) {
+        addToken(part, segment);
+      }
+    });
+  });
+
+  if (currentLine.length) {
+    flushLine();
+  }
+
+  // Remove trailing blank lines
+  while (lines.length && lines[lines.length - 1].runs.length === 0) {
+    lines.pop();
+  }
+
+  const totalHeight = lines.length * lineHeight;
+  return { lines, totalHeight };
+};
+
+const drawNoteLines = (
+  pdfInstance: jsPDF,
+  lines: NoteLine[],
+  startX: number,
+  startY: number,
+  lineHeight: number,
+  fontSize: number,
+  colors: { text: string; link: string }
+) => {
+  let y = startY;
+
+  const getFontVariant = (segment: NoteSegment) => {
+    if (segment.bold && segment.italic) return "bolditalic";
+    if (segment.bold) return "bold";
+    if (segment.italic) return "italic";
+    return "normal";
+  };
+
+  lines.forEach((line) => {
+    if (!line.runs.length) {
+      y += lineHeight;
+      return;
+    }
+
+    let x = startX;
+    line.runs.forEach((run) => {
+      if (!run.text) return;
+      const variant = getFontVariant(run);
+      pdfInstance.setFont("helvetica", variant as any);
+      pdfInstance.setFontSize(fontSize);
+      const color = run.linkHref ? colors.link : colors.text;
+      pdfInstance.setTextColor(color);
+      if (run.linkHref) {
+        pdfInstance.textWithLink(run.text, x, y, { url: run.linkHref });
+      } else {
+        pdfInstance.text(run.text, x, y);
+      }
+      const width = pdfInstance.getTextWidth(run.text);
+      if (run.underline || run.linkHref) {
+        pdfInstance.setDrawColor(color);
+        pdfInstance.setLineWidth(0.2);
+        pdfInstance.line(x, y + 0.5, x + width, y + 0.5);
+      }
+      x += width;
+    });
+    y += lineHeight;
+  });
+};
+
 const LotInfoModal = ({
   isVisible = false,
   onClose,
@@ -32,6 +345,10 @@ const LotInfoModal = ({
   const [maxDiscount, setMaxDiscount] = useState<number | null>(null);
   const [discountError, setDiscountError] = useState('');
   const [quotationNotes, setQuotationNotes] = useState('');
+  const sanitizedNotesHtml = useMemo(
+    () => sanitizeNotesHtml(quotationNotes),
+    [quotationNotes]
+  );
 
   useEffect(() => {
     const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
@@ -1683,15 +2000,18 @@ const LotInfoModal = ({
     const notesBoxWidth = pageWidth - 40;
     const notesBoxX = 20;
     const notesBoxY = yPosition;
-    
-    // Calcular altura del cuadro según el contenido
-    let notesBoxHeight = 20; // Altura mínima
-    if (quotationNotes) {
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(10);
-      const notesLines = pdf.splitTextToSize(quotationNotes, notesBoxWidth - 8) as string[];
-      notesBoxHeight = Math.max(20, notesLines.length * 4.5 + 8);
-    }
+    const noteFontSize = 10;
+    const noteLineHeight = 4.5;
+    const noteSegments = parseNotesHtmlToSegments(sanitizedNotesHtml);
+    const { lines: noteLines, totalHeight: noteContentHeight } = layoutNoteSegmentsForPdf(
+      pdf,
+      noteSegments,
+      notesBoxWidth - 8,
+      noteLineHeight,
+      noteFontSize
+    );
+    const effectiveContentHeight = noteLines.length ? noteContentHeight : noteLineHeight;
+    const notesBoxHeight = Math.max(20, effectiveContentHeight + 8);
 
     // Dibujar el cuadro
     pdf.setDrawColor(colors.border);
@@ -1699,15 +2019,16 @@ const LotInfoModal = ({
     pdf.setFillColor('#ffffff');
     pdf.roundedRect(notesBoxX, notesBoxY, notesBoxWidth, notesBoxHeight, 4, 4, 'FD');
 
-    // Texto de las notas dentro del cuadro
-    if (quotationNotes) {
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(10);
-      pdf.setTextColor(colors.text);
-      const notesLines = pdf.splitTextToSize(quotationNotes, notesBoxWidth - 8) as string[];
-      notesLines.forEach((line, idx) => {
-        pdf.text(line, notesBoxX + 4, notesBoxY + 6 + (idx * 4.5));
-      });
+    if (noteLines.length) {
+      drawNoteLines(
+        pdf,
+        noteLines,
+        notesBoxX + 4,
+        notesBoxY + 6,
+        noteLineHeight,
+        noteFontSize,
+        { text: colors.text, link: '#0E7BEA' }
+      );
     }
 
     return pdf.output('blob');
@@ -2405,7 +2726,7 @@ const LotInfoModal = ({
         
         <div class="notes-section">
           <div class="notes-title">Notas</div>
-          <div class="notes-box">${quotationNotes || ''}</div>
+          <div class="notes-box">${sanitizedNotesHtml || ''}</div>
         </div>
       
       </body>

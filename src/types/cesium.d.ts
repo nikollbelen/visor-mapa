@@ -7,6 +7,12 @@ declare global {
     getMaxArea: () => number;
     getMinPrice: () => number;
     getMinArea: () => number;
+    setLotRangeConfig?: (config: {
+      maxPrice?: number | string;
+      minPrice?: number | string;
+      maxArea?: number | string;
+      minArea?: number | string;
+    }) => void;
     hoverMarcadores: () => void;
     clearRoute: () => void;
     flyToView: (positions: any[]) => void;

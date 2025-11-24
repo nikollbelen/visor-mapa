@@ -6,11 +6,16 @@ interface LotSearchModalProps {
   onClose?: () => void;
 }
 
+const DEFAULT_PRICE_BOUNDS = { min: 0, max: 100000 };
+const DEFAULT_AREA_BOUNDS = { min: 90, max: 1000 };
+
 const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => {
-  const [priceMin, setPriceMin] = useState(0);
-  const [priceMax, setPriceMax] = useState(100000); // Valor inicial más alto
-  const [areaMin, setAreaMin] = useState(90);
-  const [areaMax, setAreaMax] = useState(1000); // Valor inicial más alto
+  const [priceMin, setPriceMin] = useState(DEFAULT_PRICE_BOUNDS.min);
+  const [priceMax, setPriceMax] = useState(DEFAULT_PRICE_BOUNDS.max); // Valor inicial más alto
+  const [areaMin, setAreaMin] = useState(DEFAULT_AREA_BOUNDS.min);
+  const [areaMax, setAreaMax] = useState(DEFAULT_AREA_BOUNDS.max); // Valor inicial más alto
+  const [priceBounds, setPriceBounds] = useState(DEFAULT_PRICE_BOUNDS);
+  const [areaBounds, setAreaBounds] = useState(DEFAULT_AREA_BOUNDS);
   const [sortBy, setSortBy] = useState('area-asc');
   const [status, setStatus] = useState('disponible');
   const [isMobile, setIsMobile] = useState(false);
@@ -27,30 +32,116 @@ const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => 
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
-  // Actualizar valores máximos y mínimos cuando se abre el modal
+  // Obtener configuración de lotes cada vez que se abre el modal
   useEffect(() => {
-    if (isVisible && window.getMaxPrice && window.getMaxArea && window.getMinPrice && window.getMinArea) {
-      const maxPrice = window.getMaxPrice();
-      const maxArea = window.getMaxArea();
-      const minPrice = window.getMinPrice();
-      const minArea = window.getMinArea();
-      
-      if (maxPrice > 0) {
-        setPriceMax(maxPrice);
+    if (!isVisible) return;
+
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+    const projectId = import.meta.env.VITE_PROJECT_ID;
+    if (!apiBaseUrl || !projectId) return;
+
+    const controller = new AbortController();
+    const fetchLotConfig = async () => {
+      try {
+        const response = await fetch(
+          `${apiBaseUrl}/lots/project/${projectId}/config`,
+          {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+              'ngrok-skip-browser-warning': 'true',
+            },
+            signal: controller.signal,
+          }
+        );
+
+        if (!response.ok) {
+          console.error('No se pudo obtener la configuración de lotes', response.status);
+          return;
+        }
+
+        const json = await response.json();
+        const config = json?.data;
+        if (!config) return;
+
+        console.info('[LotSearchModal] Configuración de lotes recibida:', {
+          max_price: config.max_price,
+          min_price: config.min_price,
+          max_area: config.max_area,
+          min_area: config.min_area,
+        });
+
+        const parseNumber = (value: unknown) => {
+          if (typeof value === 'number') return value;
+          if (typeof value === 'string') {
+            const parsed = parseFloat(value);
+            return isNaN(parsed) ? undefined : parsed;
+          }
+          return undefined;
+        };
+
+        const maxPriceFromConfig = parseNumber(config.max_price);
+        const minPriceFromConfig = parseNumber(config.min_price);
+        const maxAreaFromConfig = parseNumber(config.max_area);
+        const minAreaFromConfig = parseNumber(config.min_area);
+
+        const normalizedPriceBounds = {
+          min: minPriceFromConfig !== undefined
+            ? Math.max(0, Math.floor(minPriceFromConfig))
+            : DEFAULT_PRICE_BOUNDS.min,
+          max: maxPriceFromConfig !== undefined
+            ? Math.max(0, Math.ceil(maxPriceFromConfig))
+            : DEFAULT_PRICE_BOUNDS.max,
+        };
+        if (normalizedPriceBounds.min > normalizedPriceBounds.max) {
+          normalizedPriceBounds.min = normalizedPriceBounds.max;
+        }
+
+        const normalizedAreaBounds = {
+          min: minAreaFromConfig !== undefined
+            ? Math.max(0, Math.floor(minAreaFromConfig))
+            : DEFAULT_AREA_BOUNDS.min,
+          max: maxAreaFromConfig !== undefined
+            ? Math.max(0, Math.ceil(maxAreaFromConfig))
+            : DEFAULT_AREA_BOUNDS.max,
+        };
+        if (normalizedAreaBounds.min > normalizedAreaBounds.max) {
+          normalizedAreaBounds.min = normalizedAreaBounds.max;
+        }
+
+        setPriceBounds(normalizedPriceBounds);
+        setAreaBounds(normalizedAreaBounds);
+        setPriceMin(normalizedPriceBounds.min);
+        setPriceMax(normalizedPriceBounds.max);
+        setAreaMin(normalizedAreaBounds.min);
+        setAreaMax(normalizedAreaBounds.max);
+
+        if (window.setLotRangeConfig) {
+          window.setLotRangeConfig({
+            maxPrice: normalizedPriceBounds.max,
+            minPrice: normalizedPriceBounds.min,
+            maxArea: normalizedAreaBounds.max,
+            minArea: normalizedAreaBounds.min,
+          });
+        }
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return;
+        }
+        console.error('No se pudo obtener la configuración de lotes', error);
       }
-      if (maxArea > 0) {
-        setAreaMax(Math.ceil(maxArea));
-      }
-      if (minPrice > 0) {
-        setPriceMin(minPrice);
-      }
-      if (minArea > 0) {
-        setAreaMin(Math.ceil(minArea));
-      }
-    }
+    };
+
+    fetchLotConfig();
+    return () => controller.abort();
   }, [isVisible]);
 
   // Función para actualizar la barra visual del slider
+  const clampToBounds = (value: number, bounds: { min: number; max: number }) => {
+    if (Number.isNaN(value)) return bounds.min;
+    return Math.max(bounds.min, Math.min(value, bounds.max));
+  };
+
   const updateRangeSlider = (
     minInput: number,
     maxInput: number,
@@ -58,22 +149,15 @@ const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => 
     maxOutput: string,
     inclRange: string,
     formatValue: (value: number) => string,
-    isPrice: boolean = false
+    rangeBounds: { min: number; max: number }
   ) => {
     const minValue = minInput;
     const maxValue = maxInput;
     
-    // Usar valores máximos reales si están disponibles
-    let maxRange: number;
-    let minRange: number;
-    
-    if (isPrice) {
-      maxRange = window.getMaxPrice ? window.getMaxPrice() : 100000;
-      minRange = 0; // Valor fijo para que funcione correctamente
-    } else {
-      maxRange = window.getMaxArea ? window.getMaxArea() : 1000;
-      minRange = 90; // Valor fijo para que funcione correctamente
-    }
+    const minRange = rangeBounds?.min ?? 0;
+    const maxRangeRaw = rangeBounds?.max ?? minRange + 1;
+    const maxRange = maxRangeRaw > minRange ? maxRangeRaw : minRange + 1;
+    const rangeSpan = maxRange - minRange;
 
     // Actualizar outputs (solo contenido, no posición)
     const minOutputEl = document.querySelector(minOutput);
@@ -84,13 +168,10 @@ const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => 
     // Actualizar rango incluido
     const inclRangeEl = document.querySelector(inclRange) as HTMLElement;
     if (inclRangeEl) {
-      if (minValue > maxValue) {
-        inclRangeEl.style.width = ((minValue - maxValue) / (maxRange - minRange)) * 100 + "%";
-        inclRangeEl.style.left = ((maxValue - minRange) / (maxRange - minRange)) * 100 + "%";
-      } else {
-        inclRangeEl.style.width = ((maxValue - minValue) / (maxRange - minRange)) * 100 + "%";
-        inclRangeEl.style.left = ((minValue - minRange) / (maxRange - minRange)) * 100 + "%";
-      }
+      const effectiveMin = Math.min(minValue, maxValue);
+      const effectiveMax = Math.max(minValue, maxValue);
+      inclRangeEl.style.width = ((effectiveMax - effectiveMin) / rangeSpan) * 100 + "%";
+      inclRangeEl.style.left = ((effectiveMin - minRange) / rangeSpan) * 100 + "%";
     }
   };
 
@@ -115,7 +196,7 @@ const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => 
         ".price-output-max",
         ".price-range-slider .incl-range",
         (value) => `$${parseInt(value.toString()).toLocaleString()}`,
-        true // isPrice = true
+        priceBounds
       );
 
       // Actualizar barra de área
@@ -126,10 +207,10 @@ const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => 
         ".area-output-max",
         ".area-range-slider .incl-range",
         (value) => `${parseInt(value.toString())} m²`,
-        false // isPrice = false
+        areaBounds
       );
     }
-  }, [isVisible, priceMin, priceMax, areaMin, areaMax]);
+  }, [isVisible, priceMin, priceMax, areaMin, areaMax, priceBounds, areaBounds]);
 
   const handleClose = () => {
     onClose?.();
@@ -137,10 +218,10 @@ const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => 
 
   const handleClearFilters = () => {
     // Usar valores mínimos reales si están disponibles
-    const minPrice = window.getMinPrice ? window.getMinPrice() : 0;
-    const minArea = window.getMinArea ? window.getMinArea() : 90;
-    const maxPrice = window.getMaxPrice ? window.getMaxPrice() : 100000;
-    const maxArea = window.getMaxArea ? window.getMaxArea() : 1000;
+    const minPrice = priceBounds.min;
+    const minArea = areaBounds.min;
+    const maxPrice = priceBounds.max;
+    const maxArea = areaBounds.max;
     
     setPriceMin(minPrice);
     setPriceMax(maxPrice);
@@ -156,7 +237,8 @@ const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => 
   };
 
   const handlePriceMinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value);
+    const rawValue = parseInt(e.target.value);
+    const value = clampToBounds(rawValue, priceBounds);
     setPriceMin(value);
     // Actualizar barra visual inmediatamente
     updateRangeSlider(
@@ -166,7 +248,7 @@ const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => 
       ".price-output-max",
       ".price-range-slider .incl-range",
       (val) => `$${parseInt(val.toString()).toLocaleString()}`,
-      true // isPrice = true
+      priceBounds
     );
     // Llamar a la función de Cesium para actualizar los datos
     if (window.loadLotData) {
@@ -175,7 +257,8 @@ const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => 
   };
 
   const handlePriceMaxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value);
+    const rawValue = parseInt(e.target.value);
+    const value = clampToBounds(rawValue, priceBounds);
     setPriceMax(value);
     // Actualizar barra visual inmediatamente
     updateRangeSlider(
@@ -185,7 +268,7 @@ const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => 
       ".price-output-max",
       ".price-range-slider .incl-range",
       (val) => `$${parseInt(val.toString()).toLocaleString()}`,
-      true // isPrice = true
+      priceBounds
     );
     // Llamar a la función de Cesium para actualizar los datos
     if (window.loadLotData) {
@@ -194,7 +277,8 @@ const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => 
   };
 
   const handleAreaMinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value);
+    const rawValue = parseInt(e.target.value);
+    const value = clampToBounds(rawValue, areaBounds);
     setAreaMin(value);
     // Actualizar barra visual inmediatamente
     updateRangeSlider(
@@ -204,7 +288,7 @@ const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => 
       ".area-output-max",
       ".area-range-slider .incl-range",
       (val) => `${parseInt(val.toString())} m²`,
-      false // isPrice = false
+      areaBounds
     );
     // Llamar a la función de Cesium para actualizar los datos
     if (window.loadLotData) {
@@ -213,7 +297,8 @@ const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => 
   };
 
   const handleAreaMaxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value);
+    const rawValue = parseInt(e.target.value);
+    const value = clampToBounds(rawValue, areaBounds);
     setAreaMax(value);
     // Actualizar barra visual inmediatamente
     updateRangeSlider(
@@ -223,7 +308,7 @@ const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => 
       ".area-output-max",
       ".area-range-slider .incl-range",
       (val) => `${parseInt(val.toString())} m²`,
-      false // isPrice = false
+      areaBounds
     );
     // Llamar a la función de Cesium para actualizar los datos
     if (window.loadLotData) {
@@ -272,8 +357,8 @@ const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => 
                 <input 
                   name="priceMin" 
                   value={priceMin} 
-                  min="0" 
-                  max={window.getMaxPrice ? window.getMaxPrice() : 100000} 
+                  min={priceBounds.min} 
+                  max={priceBounds.max} 
                   step="1000" 
                   type="range"
                   onChange={handlePriceMinChange}
@@ -281,8 +366,8 @@ const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => 
                 <input 
                   name="priceMax" 
                   value={priceMax} 
-                  min="0" 
-                  max={window.getMaxPrice ? window.getMaxPrice() : 100000} 
+                  min={priceBounds.min} 
+                  max={priceBounds.max} 
                   step="1000" 
                   type="range"
                   onChange={handlePriceMaxChange}
@@ -302,8 +387,8 @@ const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => 
                 <input 
                   name="areaMin" 
                   value={areaMin} 
-                  min="90" 
-                  max={window.getMaxArea ? window.getMaxArea() : 1000} 
+                  min={areaBounds.min} 
+                  max={areaBounds.max} 
                   step="1" 
                   type="range"
                   onChange={handleAreaMinChange}
@@ -311,8 +396,8 @@ const LotSearchModal = ({ isVisible = false, onClose }: LotSearchModalProps) => 
                 <input 
                   name="areaMax" 
                   value={areaMax} 
-                  min="90" 
-                  max={window.getMaxArea ? window.getMaxArea() : 1000} 
+                  min={areaBounds.min} 
+                  max={areaBounds.max} 
                   step="1" 
                   type="range"
                   onChange={handleAreaMaxChange}
