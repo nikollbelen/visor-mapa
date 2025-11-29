@@ -1219,7 +1219,7 @@ function hoverMarcadores() {
     let entity =
       picked
         .map((p) => p.id)
-        .find((id) => id && id.id && id.id.startsWith("marcador_")) || null;
+        .find((id) => id && id.id && (id.id.startsWith("marcador_") || id.id.startsWith("area_comun_"))) || null;
 
     // Restore hover if we moved away or to another entity
     if (highlightedMarcador && highlightedMarcador !== entity) {
@@ -1232,7 +1232,7 @@ function hoverMarcadores() {
       viewer.scene.requestRender();
     }
 
-    if (entity && entity.id && entity.id.startsWith("marcador_")) {
+    if (entity && entity.id && (entity.id.startsWith("marcador_") || entity.id.startsWith("area_comun_"))) {
       // Apply hover if not the same marker
       if (highlightedMarcador !== entity) {
         highlightedMarcador = entity;
@@ -1520,6 +1520,11 @@ async function handleAreasComunes() {
       if (positions.length > 0) {
         flyToView(positions);
       }
+
+      // Configure hover events for markers (ya incluye áreas comunes)
+      hoverMarcadores();
+      // Configure click for area markers
+      clickMarcadoresAreasComunes();
     }
   } catch (error) {
     console.error("Error al cargar las áreas comunes:", error);
@@ -1544,6 +1549,27 @@ function populateAreasModal(areasData) {
       detail: { areasData: areasData },
     })
   );
+}
+
+// Function to handle clicks on common area markers
+function clickMarcadoresAreasComunes() {
+  if (!viewer) return;
+
+  viewer.screenSpaceEventHandler.setInputAction(function onLeftClick(click) {
+    const pickedObject = viewer.scene.pick(click.position);
+
+    if (pickedObject && pickedObject.id) {
+      const entity = pickedObject.id;
+      const entityId = entity.id;
+
+      if (entityId && entityId.startsWith("area_comun_")) {
+        const imageUrl = entity.properties.image._value;
+        if (imageUrl) {
+          openAreasComunesImage(imageUrl);
+        }
+      }
+    }
+  }, window.Cesium.ScreenSpaceEventType.LEFT_CLICK);
 }
 
 // Function to open common area image
@@ -2290,6 +2316,7 @@ window.handleEntorno = handleEntorno;
 window.handleVideo = handleVideo;
 window.selectLotByEntity = selectLotByEntity;
 window.clickMarcadores360 = clickMarcadores360;
+window.clickMarcadoresAreasComunes = clickMarcadoresAreasComunes;
 window.openOverlay360 = openOverlay360;
 window.closeOverlay360 = closeOverlay360;
 window.populateAreasModal = populateAreasModal;
