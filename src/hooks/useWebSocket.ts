@@ -1,24 +1,5 @@
 import { useEffect, useRef } from 'react';
 
-interface WebSocketMessage {
-  type: string;
-  data: {
-    id: string;
-    phase: string;
-    block: string;
-    lot: string;
-    area: number;
-    price: number;
-    state: string;
-    fid: string;
-    project_id: string;
-    created_at: string;
-    updated_at: string;
-    is_active: boolean;
-  };
-  timestamp: string;
-}
-
 /**
  * Hook personalizado para manejar la conexión WebSocket y recibir actualizaciones de lotes
  * 
@@ -28,7 +9,7 @@ interface WebSocketMessage {
  */
 export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectTimeoutRef = useRef<number | null>(null);
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
   const reconnectDelay = 3000; // 3 segundos
@@ -85,7 +66,7 @@ export function useWebSocket() {
           }
         };
 
-        ws.onerror = (error) => {
+        ws.onerror = () => {
           // Solo loguear errores si la conexión no está cerrada (evitar logs duplicados)
           if (wsRef.current?.readyState !== WebSocket.CLOSED) {
             console.warn('[WebSocket] ⚠️ Error en la conexión (se intentará reconectar)');
