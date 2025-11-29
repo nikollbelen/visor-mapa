@@ -20,10 +20,15 @@ const viewer = new Cesium.Viewer("cesiumContainer", {
 // Asignar viewer a window para acceso global
 window.viewer = viewer;
 
+// Deshabilitar el comportamiento de doble clic que hace zoom/enfoque automático
+viewer.cesiumWidget.screenSpaceEventHandler.removeInputAction(window.Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
+
 // Global variables for lots
 let lotesPositions = [];
 let processedLots = [];
 let lotesDataSource = null;
+let fidToApiProps = new Map(); // Map para almacenar datos de API por fid
+let lotesData = null; // GeoJSON data de lotes
 
 // Variables to handle hover
 let highlightedMarcador = null;
@@ -236,10 +241,10 @@ try {
 async function loadLotesData() {
   try {
     const response = await fetch("./data/lotes.geojson");
-    const lotesData = await response.json();
+    lotesData = await response.json();
 
     // 1) Obtener propiedades desde API por POST y mapear por fid (manteniendo geometrías locales)
-    let fidToApiProps = new Map();
+    fidToApiProps.clear(); // Limpiar el Map antes de cargar nuevos datos
     try {
       const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
       const projectId = import.meta.env.VITE_PROJECT_ID;
@@ -577,6 +582,197 @@ async function loadLotesData() {
     console.error("Error loading lotes.geojson:", error);
   }
 }
+
+// Función para actualizar un lote cuando llega un evento del WebSocket
+function updateLotFromWebSocket(lotData) {
+  try {
+    if (!lotData || !lotData.fid) {
+      console.warn('updateLotFromWebSocket: lotData o fid no válido', lotData);
+      return;
+    }
+
+    const fidKey = String(lotData.fid);
+    
+    // 1) Actualizar el Map fidToApiProps
+    fidToApiProps.set(fidKey, lotData);
+    console.log(`[WebSocket] Lote actualizado en fidToApiProps: fid=${fidKey}`, lotData);
+
+    // Variable para almacenar los datos mapeados (se usará en múltiples lugares)
+    let mapped = null;
+    let feature = null;
+
+    // 2) Buscar y actualizar el feature en lotesData
+    if (lotesData && Array.isArray(lotesData.features)) {
+      feature = lotesData.features.find(
+        (f) => f && f.properties && String(f.properties.fid) === fidKey
+      );
+
+      if (feature && feature.properties) {
+        // Mapear campos del API -> esquema usado en la app
+        mapped = {
+          manzana: lotData.block ?? feature.properties.manzana,
+          lote: lotData.lot ?? feature.properties.lote,
+          area: lotData.area ?? feature.properties.area,
+          precio: lotData.price ?? feature.properties.precio,
+          estado: lotData.state ? String(lotData.state).toLowerCase() : feature.properties.estado,
+        };
+
+        // Actualizar propiedades fusionadas
+        feature.properties.manzana = mapped.manzana;
+        feature.properties.lote = mapped.lote;
+        feature.properties.area = mapped.area;
+        feature.properties.precio = mapped.precio;
+        feature.properties.estado = mapped.estado;
+
+        // Actualizar extras del API
+        feature.properties._api = {
+          id: lotData.id,
+          phase: lotData.phase,
+          project_id: lotData.project_id,
+          updated_at: lotData.updated_at,
+          is_active: lotData.is_active,
+        };
+
+        console.log(`[WebSocket] Feature actualizado en lotesData: fid=${fidKey}`);
+      } else {
+        console.warn(`[WebSocket] No se encontró feature con fid=${fidKey} en lotesData`);
+        // Si no encontramos el feature, crear mapped con los datos del API directamente
+        mapped = {
+          manzana: lotData.block ?? "",
+          lote: lotData.lot ?? "",
+          area: lotData.area ?? 0,
+          precio: lotData.price ?? 0,
+          estado: lotData.state ? String(lotData.state).toLowerCase() : "disponible",
+        };
+      }
+    }
+
+    // 3) Actualizar la entidad en Cesium si existe
+    if (mapped && lotesDataSource && lotesDataSource.entities) {
+      const entities = lotesDataSource.entities.values;
+      const entity = entities.find((e) => {
+        if (!e || !e.properties) return false;
+        try {
+          const entityFid = e.properties.fid && e.properties.fid.getValue 
+            ? e.properties.fid.getValue() 
+            : e.properties.fid;
+          return String(entityFid) === fidKey;
+        } catch (e) {
+          return false;
+        }
+      });
+
+      if (entity && entity.properties) {
+        // Actualizar propiedades de la entidad en Cesium
+        if (entity.properties.manzana) entity.properties.manzana.setValue(mapped.manzana);
+        if (entity.properties.lote) entity.properties.lote.setValue(mapped.lote);
+        if (entity.properties.area) entity.properties.area.setValue(mapped.area);
+        if (entity.properties.precio) entity.properties.precio.setValue(mapped.precio);
+        if (entity.properties.estado) entity.properties.estado.setValue(mapped.estado);
+
+        // Actualizar color del polígono según el estado
+        const statusColor = getStatusColor(mapped.estado);
+        if (entity.polygon && entity.polygon.material && statusColor) {
+          // getStatusColor ya devuelve un objeto Cesium.Color, solo necesitamos aplicar el alpha
+          entity.polygon.material = statusColor.withAlpha(0.5);
+        }
+
+        console.log(`[WebSocket] Entidad Cesium actualizada: fid=${fidKey}`);
+        
+        // 6) Si esta entidad es la que está actualmente seleccionada, disparar evento para actualizar el modal
+        if (selected && selected === entity && window.getDireccion && window.getArea && window.getPrecio && window.getEstado && window.getColindancias && window.getId && window.getPhase) {
+          // Disparar evento con los datos actualizados del lote
+          window.dispatchEvent(
+            new CustomEvent("loteUpdated", {
+              detail: {
+                entity: entity,
+                direccion: window.getDireccion(entity),
+                area: window.getArea(entity),
+                precio: window.getPrecio(entity),
+                estado: window.getEstado(entity),
+                boundaries: window.getColindancias(entity),
+                id: window.getId(entity),
+                phase: window.getPhase(entity),
+              },
+            })
+          );
+          console.log(`[WebSocket] Evento loteUpdated disparado para lote seleccionado: fid=${fidKey}`);
+        }
+      }
+    }
+
+    // 4) Re-procesar los lotes
+    if (lotesData && Array.isArray(lotesData.features)) {
+      const feats = lotesData.features || [];
+      processedLots = feats
+        .filter((f) => f && f.properties)
+        .filter((f) => {
+          const p = f.properties || {};
+          const number = p.number || "";
+          const lote = p.lote || "";
+          return (
+            number !== "Jardín" &&
+            (lote !== "" || (number !== "" && !isNaN(parseInt(number))))
+          );
+        })
+        .map((f, idx) => {
+          const p = f.properties || {};
+          // Normalize area
+          let areaNum = 0;
+          if (typeof p.area === "string") {
+            areaNum = parseFloat(p.area.replace(",", ".")) || 0;
+          } else if (typeof p.area === "number") {
+            areaNum = p.area;
+          }
+          // Price
+          let precioNum = 0;
+          if (typeof p.precio === "string") {
+            precioNum = parseFloat(p.precio.replace(",", ".")) || 0;
+          } else if (typeof p.precio === "number") {
+            precioNum = p.precio;
+          }
+
+          const estado = p.estado || "disponible";
+          const manzana = p.manzana || "";
+          const lote = p.lote || "";
+          const direccion = p.direccion || p.number || "";
+          const phaseOrder = normalizePhaseValue(
+            (p._api && p._api.phase) || p.phase,
+            direccion
+          );
+          const blockCode = normalizeBlockValue(manzana, direccion);
+          const lotIndex = normalizeLotNumberValue(lote, direccion);
+          return {
+            id: p.direccion || `${idx}`,
+            number:
+              p.direccion ||
+              (manzana || lote
+                ? `Mz. ${manzana} - Lote ${lote}`
+                : p.number || `Lote ${idx + 1}`),
+            price: precioNum,
+            area: areaNum,
+            status: String(estado).toLowerCase(),
+            phaseOrder,
+            blockCode,
+            lotIndex,
+          };
+        });
+
+      console.log(`[WebSocket] processedLots re-procesado, total: ${processedLots.length}`);
+    }
+
+    // 5) Actualizar la visualización si loadLotData está disponible
+    if (window.loadLotData) {
+      window.loadLotData();
+      console.log(`[WebSocket] Visualización actualizada para lote fid=${fidKey}`);
+    }
+  } catch (error) {
+    console.error('[WebSocket] Error al actualizar lote:', error, lotData);
+  }
+}
+
+// Exponer función globalmente para uso desde React
+window.updateLotFromWebSocket = updateLotFromWebSocket;
 
 function setupLoteInteractions() {
   const handler = new window.Cesium.ScreenSpaceEventHandler(

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import {
   addMonths,
   format,
@@ -390,6 +390,7 @@ const LotInfoModal = ({
   useEffect(() => {
   }, [userState]);
 
+
   const formatLotLabel = (direccion?: string, phase?: string) => {
     const normalizedPhase = (phase || '').toString().replace(/^\s*etapa\s+/i, '').trim();
     const stageText = normalizedPhase ? `Etapa ${normalizedPhase}` : '';
@@ -454,6 +455,9 @@ const LotInfoModal = ({
   const [hasBeenSaved, setHasBeenSaved] = useState(false);
   const [lastSavedData, setLastSavedData] = useState<any>(null);
   const [quotationCodeForModal, setQuotationCodeForModal] = useState<string | undefined>(undefined);
+  
+  // Estado para mensaje flotante (toast)
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   
   // Estados para manejar el focus de inputs formateados
   const [focusedInputs, setFocusedInputs] = useState<{[key: string]: boolean}>({});
@@ -610,6 +614,129 @@ const LotInfoModal = ({
   };
 
   // Función para redondear a 2 decimales solo si tiene más de 2 decimales
+  // Ref para rastrear el precio anterior y evitar recálculos innecesarios
+  const previousPriceRef = useRef<number | undefined>(undefined);
+  const scheduleRef = useRef<any[]>([]);
+  const previousStatusRef = useRef<string | undefined>(undefined);
+
+  // Sincronizar scheduleRef con schedule
+  useEffect(() => {
+    scheduleRef.current = schedule;
+  }, [schedule]);
+
+  // Detectar cambio de estado del lote y cerrar cotización si ya no está disponible
+  useEffect(() => {
+    const currentStatus = loteData?.estado ? String(loteData.estado).toLowerCase() : undefined;
+    const previousStatus = previousStatusRef.current;
+
+    // Inicializar el estado anterior si es la primera vez
+    if (currentStatus !== undefined && previousStatus === undefined) {
+      previousStatusRef.current = currentStatus;
+      return;
+    }
+
+    // Si el estado cambió y ahora NO es "disponible", cerrar la cotización
+    if (
+      currentStatus !== undefined &&
+      previousStatus !== undefined &&
+      previousStatus === 'disponible' &&
+      currentStatus !== 'disponible' &&
+      showQuotation
+    ) {
+      // Quitar la clase flip del modal para que vuelva a la vista de información
+      // Hacerlo de forma suave, similar a handleBackToLot
+      const modal = document.querySelector(".lot-modal");
+      if (modal) {
+        modal.classList.remove("flip");
+        
+        // Esperar a que termine la animación antes de cambiar el estado
+        setTimeout(() => {
+          setShowQuotation(false);
+        }, 400); // Half of animation duration
+      } else {
+        // Si no se encuentra el modal, cerrar inmediatamente
+        setShowQuotation(false);
+      }
+      
+      // Limpiar el schedule
+      setSchedule([]);
+      
+      // Mostrar mensaje flotante al usuario
+      const statusMessages: Record<string, string> = {
+        reservado: 'El lote ha sido reservado y ya no está disponible para cotizaciones.',
+        vendido: 'El lote ha sido vendido y ya no está disponible para cotizaciones.',
+        negociacion: 'El lote está en negociación y ya no está disponible para cotizaciones.',
+      };
+      
+      const message = statusMessages[currentStatus] || 'El lote ya no está disponible para cotizaciones.';
+      setToastMessage(message);
+      
+      // Ocultar el mensaje después de 5 segundos
+      setTimeout(() => {
+        setToastMessage(null);
+      }, 5000);
+      
+      console.log('[LotInfoModal] Cotización cerrada por cambio de estado:', {
+        estadoAnterior: previousStatus,
+        estadoNuevo: currentStatus,
+      });
+    }
+
+    // Actualizar el ref con el estado actual
+    if (currentStatus !== undefined) {
+      previousStatusRef.current = currentStatus;
+    }
+  }, [loteData?.estado, showQuotation]);
+
+  // Recalcular cuotas cuando cambie el precio del lote (actualización en tiempo real vía WebSocket)
+  useEffect(() => {
+    const currentPrice = loteData?.precio;
+    const currentSchedule = scheduleRef.current;
+    
+    // Solo recalcular si:
+    // 1. Hay cuotas generadas
+    // 2. El modal de cotización está visible
+    // 3. El precio existe y ha cambiado realmente
+    if (
+      currentSchedule.length > 0 && 
+      showQuotation && 
+      currentPrice !== undefined && 
+      typeof currentPrice === 'number' &&
+      currentPrice !== previousPriceRef.current
+    ) {
+      const finalPrice = (currentPrice || 0) - discountAmount;
+      
+      // Recalcular los montos manteniendo los porcentajes y fechas
+      const updatedSchedule = currentSchedule.map((item) => {
+        // Mantener todos los datos del item (fechas, porcentajes, etc.)
+        const updatedItem = { ...item };
+        
+        // Recalcular el monto basado en el nuevo precio final y el porcentaje
+        if (updatedItem.percentage !== undefined) {
+          updatedItem.amount = roundToTwoDecimals((updatedItem.percentage / 100) * finalPrice);
+        }
+        
+        return updatedItem;
+      });
+      
+      // Aplicar cálculo preciso para asegurar que la suma sea exacta
+      const preciseSchedule = calculatePreciseAmounts(updatedSchedule, finalPrice);
+      setSchedule(preciseSchedule);
+      
+      // Actualizar el ref con el nuevo precio
+      previousPriceRef.current = currentPrice;
+      
+      console.log('[LotInfoModal] Cuotas recalculadas por cambio de precio en tiempo real:', {
+        precioAnterior: previousPriceRef.current,
+        precioNuevo: currentPrice,
+        finalPrice,
+      });
+    } else if (currentPrice !== undefined && typeof currentPrice === 'number') {
+      // Actualizar el ref incluso si no recalculamos (para la próxima vez)
+      previousPriceRef.current = currentPrice;
+    }
+  }, [loteData?.precio, showQuotation, discountAmount]); // Solo recalcular cuando cambie el precio, se abra/cierre la cotización, o cambie el descuento
+
   const roundToTwoDecimals = (value: number): number => {
     const rounded = Math.round(value * 100) / 100;
     return rounded;
@@ -679,13 +806,13 @@ const LotInfoModal = ({
       const monthNum = parseInt(month);
       const yearNum = parseInt(year);
       
-    if (dayNum >= 1 && dayNum <= 31 && monthNum >= 1 && monthNum <= 12 && yearNum >= 2000) {
-      const candidate = new Date(yearNum, monthNum - 1, dayNum);
-      if (isNaN(candidate.getTime())) {
-        return '';
+      if (dayNum >= 1 && dayNum <= 31 && monthNum >= 1 && monthNum <= 12 && yearNum >= 2000) {
+        const candidate = new Date(yearNum, monthNum - 1, dayNum);
+        if (isNaN(candidate.getTime())) {
+          return '';
+        }
+        return `${day}/${month}/${year}`;
       }
-      return `${day}/${month}/${year}`;
-    }
     }
     
     // Si no se puede formatear correctamente, retornar vacío para invalidar la fecha
@@ -1599,8 +1726,8 @@ const LotInfoModal = ({
       
       if (!result.success || !result.data) {
         alert('No hay agentes disponibles en este momento. Por favor, intente más tarde.');
-        return;
-      }
+      return;
+    }
 
       const agent = result.data;
       
@@ -1609,21 +1736,21 @@ const LotInfoModal = ({
         alert('El agente no tiene número de teléfono disponible.');
         return;
       }
-
-      // Crear mensaje para WhatsApp
-      const loteInfo = lotData?.lot || 'N/A';
+    
+    // Crear mensaje para WhatsApp
+    const loteInfo = lotData?.lot || 'N/A';
       const agentName = agent.full_name || 'agente';
       const message = `Hola ${agentName}, me interesa obtener más información sobre el lote ${loteInfo}. Por favor, contácteme.`;
-      const encodedMessage = encodeURIComponent(message);
-      
+    const encodedMessage = encodeURIComponent(message);
+    
       // Limpiar el número de teléfono (remover espacios, guiones, etc.)
       const cleanPhone = agent.phone.replace(/\D/g, '');
-      
+  
       // Usar el número de teléfono del agente
       const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
-      
-      // Abrir WhatsApp en una nueva ventana
-      window.open(whatsappUrl, '_blank');
+    
+    // Abrir WhatsApp en una nueva ventana
+    window.open(whatsappUrl, '_blank');
     } catch (error) {
       console.error('Error al obtener agente aleatorio:', error);
       alert('Error al conectar con el servicio. Por favor, intente más tarde.');
@@ -1857,13 +1984,13 @@ const LotInfoModal = ({
       const rowY = currentY;
 
       if (leftRow) {
-        pdf.setFont('helvetica', 'bold');
+      pdf.setFont('helvetica', 'bold');
         pdf.setFontSize(10);
-        pdf.setTextColor(colors.lightGray);
+      pdf.setTextColor(colors.lightGray);
         pdf.text(leftRow.label, blockX, rowY);
-        pdf.setFont('helvetica', 'normal');
+      pdf.setFont('helvetica', 'normal');
         pdf.setFontSize(10);
-        pdf.setTextColor(colors.text);
+      pdf.setTextColor(colors.text);
         leftLines.forEach((line, idx) => {
           const lineY = rowY + idx * baseLineSpacing;
           pdf.text(line, leftValueStartX, lineY, { maxWidth: valueMaxWidth });
@@ -1871,13 +1998,13 @@ const LotInfoModal = ({
       }
 
       if (rightRow) {
-        pdf.setFont('helvetica', 'bold');
+      pdf.setFont('helvetica', 'bold');
         pdf.setFontSize(10);
-        pdf.setTextColor(colors.lightGray);
+      pdf.setTextColor(colors.lightGray);
         pdf.text(rightRow.label, rightColumnX, rowY);
-        pdf.setFont('helvetica', 'normal');
+      pdf.setFont('helvetica', 'normal');
         pdf.setFontSize(10);
-        pdf.setTextColor(colors.text);
+      pdf.setTextColor(colors.text);
         rightLines.forEach((line, idx) => {
           const lineY = rowY + idx * baseLineSpacing;
           pdf.text(line, rightValueStartX, lineY, { maxWidth: valueMaxWidth });
@@ -2301,21 +2428,21 @@ const LotInfoModal = ({
       // Preparar datos para console.log (FormData no es legible directamente)
       const dataToSend = {
         code: code,
-        client: contactData.cliente?.nombre || '',
-        email: contactData.cliente?.email || '',
-        phone: contactData.cliente?.telefono || '',
-        identification_number: contactData.cliente?.dni || '',
-        lot_id: LOT_ID,
-        agreed_price: validAgreedPrice,
-        discount: validDiscount,
-        project_id: PROJECT_ID,
-        agent_id: agentId,
-        validity_days: contactData?.validity?.days || 0,
-        pdf_file: {
+          client: contactData.cliente?.nombre || '',
+          email: contactData.cliente?.email || '',
+          phone: contactData.cliente?.telefono || '',
+          identification_number: contactData.cliente?.dni || '',
+          lot_id: LOT_ID,
+          agreed_price: validAgreedPrice,
+          discount: validDiscount,
+          project_id: PROJECT_ID,
+          agent_id: agentId,
+          validity_days: contactData?.validity?.days || 0,
+          pdf_file: {
           name: finalFileName,
-          type: pdfBlob?.type,
-          size: pdfBlob?.size,
-        },
+            type: pdfBlob?.type,
+            size: pdfBlob?.size,
+          },
       };
 
       // Mostrar todos los datos que se envían al dashboard
@@ -2534,7 +2661,7 @@ const LotInfoModal = ({
             padding-bottom: 10px;
           }
           .info-block {
-            display: grid;
+            display: grid; 
             grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
             gap: 24px;
             background: #f9f9f9;
@@ -2639,23 +2766,23 @@ const LotInfoModal = ({
               <div class="info-row">
                 <span class="info-label">Lote:</span>
                 <span class="info-value">${lotData.lot || '—'}</span>
-              </div>
+            </div>
               <div class="info-row">
                 <span class="info-label">Etapa:</span>
                 <span class="info-value">${lotData.phase ? `Etapa ${lotData.phase}` : '—'}</span>
-              </div>
+            </div>
               <div class="info-row">
                 <span class="info-label">Área:</span>
                 <span class="info-value">${lotData.area || '—'}</span>
-              </div>
+            </div>
               <div class="info-row">
                 <span class="info-label">Precio:</span>
                 <span class="info-value">${formatPrice(lotData.price)}</span>
-              </div>
+          </div>
               <div class="info-row">
                 <span class="info-label">Fecha de cotización:</span>
                 <span class="info-value">${new Date().toLocaleDateString()}</span>
-              </div>
+        </div>
             </div>
             <div class="info-column">
               <div class="info-row">
@@ -2674,7 +2801,7 @@ const LotInfoModal = ({
                 <span class="info-label">Celular cliente:</span>
                 <span class="info-value">${contactData.cliente?.telefono ? `${formatPhone(contactData.cliente.telefono, contactData.cliente?.codigoPais || '+51')}` : '—'}</span>
               </div>
-              ${userState ? `
+            ${userState ? `
               <div class="info-row">
                 <span class="info-label">Vendedor:</span>
                 <span class="info-value">${contactData.vendedor?.full_name || '—'}</span>
@@ -2682,8 +2809,8 @@ const LotInfoModal = ({
               <div class="info-row">
                 <span class="info-label">Email vendedor:</span>
                 <span class="info-value">${contactData.vendedor?.email || '—'}</span>
-              </div>
-              ` : ''}
+            </div>
+            ` : ''}
             </div>
           </div>
         </div>
@@ -2962,7 +3089,7 @@ const LotInfoModal = ({
 
         <div className="lot-modal-content">
           <div className="lot-identification">
-            <div className="lot-stage-badge">Etapa {lotData.phase || "1"}</div>
+              <div className="lot-stage-badge">Etapa {lotData.phase || "1"}</div>
             <div className="lot-center">
               <div className="lot-box">
                 <span id="modalLot">{getLotWithoutPhase(lotData.lot)}</span>
@@ -3117,7 +3244,7 @@ const LotInfoModal = ({
           <div className="quotation-title">
             <span>Cotización de Lote</span>
           <div className="quotation-divider"></div>
-          </div>
+        </div>
 
           <div className="section-header">
               <h2 className="section-title">Cronograma de pago</h2>
@@ -3482,9 +3609,9 @@ const LotInfoModal = ({
                             parseInt(e.target.value.replace(/[^0-9]/g, "")) ||
                             0;
                           setNumberOfInstallments(value);
-                          setNeedsUpdate(true);
-                        }}
-                      />
+                            setNeedsUpdate(true);
+                          }}
+                        />
                     </div>
                   </div>
 
@@ -3702,9 +3829,9 @@ const LotInfoModal = ({
                             parseInt(e.target.value.replace(/[^0-9]/g, "")) ||
                             0;
                           setNumberOfInstallments(value);
-                          setNeedsUpdate(true);
-                        }}
-                      />
+                            setNeedsUpdate(true);
+                          }}
+                        />
                     </div>
                   </div>
 
@@ -3948,10 +4075,10 @@ const LotInfoModal = ({
                               // Validar fecha según el tipo de item (Separación/Inicial vs Cuotas)
                               const validation = validateScheduleDate(formattedDate, item.item);
                               if (validation.isValid) {
-                                // Fecha válida
-                                newSchedule[index].date = formattedDate;
-                                newSchedule[index].isEditedDate = true;
-                                newSchedule[index].lastValidDate = formattedDate;
+                              // Fecha válida
+                              newSchedule[index].date = formattedDate;
+                              newSchedule[index].isEditedDate = true;
+                              newSchedule[index].lastValidDate = formattedDate;
                                 
                                 // Si es la primera cuota (Cuota 1), actualizar firstPaymentDate
                                 if (item.item === "Cuota 1") {
@@ -4152,6 +4279,16 @@ const LotInfoModal = ({
         currentUser={userState}
         quotationCode={quotationCodeForModal}
       />
+
+      {/* Toast Message */}
+      {toastMessage && (
+        <div className="lot-toast-message">
+          <div className="lot-toast-content">
+            <i className="fas fa-exclamation-triangle"></i>
+            <span>{toastMessage}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

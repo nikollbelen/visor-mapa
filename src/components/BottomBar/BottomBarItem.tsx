@@ -29,16 +29,16 @@ const BottomBarItem = ({ id, icon, alt, isActive, onClick }: BottomBarItemProps)
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
     >
-      <button 
-        id={id}
-        className={`bottombar-icon-button ${isActive ? 'active' : ''}`}
-        onClick={() => onClick(id)}
-      >
-        <img src={icon} alt={alt} />
+    <button 
+      id={id}
+      className={`bottombar-icon-button ${isActive ? 'active' : ''}`}
+      onClick={() => onClick(id)}
+    >
+      <img src={icon} alt={alt} />
         <div className={`bottombar-tooltip ${showTooltip ? 'show' : ''}`}>
           {tooltipTexts[id] || alt}
         </div>
-      </button>
+    </button>
     </div>
   );
 };

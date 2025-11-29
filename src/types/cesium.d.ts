@@ -69,5 +69,19 @@ declare global {
     getColindancias?: (entity: any) => { left: string; right: string; front: string; back: string };
     getPhase?: (entity: any) => string | undefined;
     selectLotByEntity?: (entity: any) => void;
+    updateLotFromWebSocket?: (lotData: {
+      id: string;
+      phase: string;
+      block: string;
+      lot: string;
+      area: number;
+      price: number;
+      state: string;
+      fid: string;
+      project_id: string;
+      created_at: string;
+      updated_at: string;
+      is_active: boolean;
+    }) => void;
   }
 }

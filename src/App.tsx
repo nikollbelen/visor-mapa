@@ -13,9 +13,13 @@ import VideoOverlay from "./components/Overlays/VideoOverlay/VideoOverlay";
 import ImageOverlay from "./components/Overlays/ImageOverlay/ImageOverlay";
 import Photos360Overlay from "./components/Overlays/Photos360Overlay/Photos360Overlay";
 import TimeOfDayControl from "./components/Overlays/TimeOfDayControl/TimeOfDayControl";
+import { useWebSocket } from "./hooks/useWebSocket";
 
 function AppContent() {
   const { user } = useAuth();
+  
+  // Inicializar WebSocket para recibir actualizaciones de lotes en tiempo real
+  useWebSocket();
   
   // Verificar si hay highlight en la URL al inicializar
   const urlParams = new URLSearchParams(window.location.search);
@@ -62,6 +66,33 @@ function AppContent() {
       }, 10);
     },
     [showLotInfoModal, selectedLote, showLotSearchModal]
+  );
+
+  // Handler para actualizar el lote cuando llega un evento del WebSocket
+  const handleLoteUpdated = useCallback(
+    (event: CustomEvent) => {
+      const updatedLoteData = event.detail;
+      
+      // Solo actualizar si el modal está abierto y es el mismo lote
+      if (showLotInfoModal && selectedLote) {
+        const currentId = (selectedLote as any)?.id;
+        const updatedId = updatedLoteData?.id;
+        const currentDireccion = (selectedLote as any)?.direccion;
+        const updatedDireccion = updatedLoteData?.direccion;
+        
+        // Comparar por ID o por direccion para verificar que es el mismo lote
+        const isSameLot = 
+          (currentId && updatedId && String(currentId) === String(updatedId)) ||
+          (currentDireccion && updatedDireccion && String(currentDireccion) === String(updatedDireccion));
+        
+        if (isSameLot) {
+          console.log('[App] Actualizando lote en modal en tiempo real:', updatedLoteData);
+          // Actualizar el estado del lote seleccionado con los nuevos datos
+          setSelectedLote(updatedLoteData);
+        }
+      }
+    },
+    [showLotInfoModal, selectedLote]
   );
 
   const handleOpenPhotos360 = (event: CustomEvent) => {
@@ -252,6 +283,11 @@ function AppContent() {
     );
 
     window.addEventListener(
+      "loteUpdated",
+      handleLoteUpdated as EventListener
+    );
+
+    window.addEventListener(
       "openPhotos360",
       handleOpenPhotos360 as EventListener
     );
@@ -298,6 +334,10 @@ function AppContent() {
         handleLoteSelected as EventListener
       );
       window.removeEventListener(
+        "loteUpdated",
+        handleLoteUpdated as EventListener
+      );
+      window.removeEventListener(
         "openPhotos360",
         handleOpenPhotos360 as EventListener
       );
@@ -338,7 +378,7 @@ function AppContent() {
         handleClearAllModals as EventListener
       );
     };
-  }, [handleOpenAreasModal, handleOpenLotSearchModal, handleLoteSelected]);
+  }, [handleOpenAreasModal, handleOpenLotSearchModal, handleLoteSelected, handleLoteUpdated]);
 
   const handleSplashComplete = () => {
     setShowSplash(false);
