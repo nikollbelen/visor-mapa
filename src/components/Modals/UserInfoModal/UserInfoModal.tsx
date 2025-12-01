@@ -14,7 +14,7 @@ interface UserInfoModalProps {
 }
 
 const UserInfoModal = ({ isVisible, user, onClose, onLogout }: UserInfoModalProps) => {
-  const { isAuthenticated } = useAuth();
+  const { token } = useAuth();
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(false);
 
   if (!isVisible) return null;
@@ -27,8 +27,8 @@ const UserInfoModal = ({ isVisible, user, onClose, onLogout }: UserInfoModalProp
   const ADMIN_URL = import.meta.env.VITE_ADMIN_URL;
 
   const handleGoToDashboard = async () => {
-    if (!isAuthenticated) {
-      console.error('No hay sesión de autenticación');
+    if (!token) {
+      console.error('No hay token de autenticación');
       return;
     }
 
@@ -41,9 +41,9 @@ const UserInfoModal = ({ isVisible, user, onClose, onLogout }: UserInfoModalProp
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
           'ngrok-skip-browser-warning': 'true'
-        },
-        credentials: 'include'
+        }
       });
 
       if (!response.ok) {

@@ -361,7 +361,6 @@ const LotInfoModal = ({
         'Accept': 'application/json',
         'ngrok-skip-browser-warning': 'true',
       },
-      credentials: 'include',
       signal: controller.signal
     })
       .then(res => res.json())
@@ -1716,8 +1715,7 @@ const LotInfoModal = ({
       const response = await fetch(`${BASE_API}/users/random-agent/${PROJECT_ID}`, {
         headers: {
           'ngrok-skip-browser-warning': 'true'
-        },
-        credentials: 'include'
+        }
       });
 
       if (!response.ok) {
@@ -2420,6 +2418,13 @@ const LotInfoModal = ({
         throw new Error('Todos los campos requeridos deben estar presentes');
       }
 
+      // Obtener token de autenticación
+      const token = localStorage.getItem('auth_token');
+      
+      if (!token) {
+        throw new Error('No hay token de autenticación. Por favor, inicie sesión nuevamente.');
+      }
+      
       // Preparar datos para console.log (FormData no es legible directamente)
       const dataToSend = {
         code: code,
@@ -2463,13 +2468,13 @@ const LotInfoModal = ({
       console.log('- Archivo PDF:', dataToSend.pdf_file.name, `(${dataToSend.pdf_file.size} bytes)`);
       console.log('========================================');
       
-      // Enviar a la API con cookies HTTP-only
+      // Enviar a la API
       const response = await fetch(`${BASE_API}/quotations`, {
         method: 'POST',
         headers: {
+          'Authorization': `Bearer ${token}`,
           'ngrok-skip-browser-warning': 'true'
-        }, 
-        credentials: 'include',
+        },
         body: formData
       });
 
