@@ -208,7 +208,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = useCallback(async () => {
     // Verificar si realmente hay una sesión antes de intentar logout
     const hadActiveUser = userRef.current !== null;
-    const hadSessionFlag = localStorage.getItem('hasAuthSession') === 'true';
 
     // Limpiar estado local primero (siempre hacer esto)
     setUser(null);

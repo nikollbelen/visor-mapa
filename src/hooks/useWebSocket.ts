@@ -57,7 +57,7 @@ export function useWebSocket() {
           }
         };
 
-        ws.onerror = (error) => {
+        ws.onerror = () => {
           // Suprimir errores si el componente se está desmontando
           if (isUnmountingRef.current) return;
           
