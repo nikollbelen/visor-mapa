@@ -1,6 +1,4 @@
 import "./UserInfoModal.css";
-import { useAuth } from "../../../contexts/AuthContext";
-import { useState } from "react";
 
 interface UserInfoModalProps {
   isVisible: boolean;
@@ -14,9 +12,6 @@ interface UserInfoModalProps {
 }
 
 const UserInfoModal = ({ isVisible, user, onClose, onLogout }: UserInfoModalProps) => {
-  const { isAuthenticated } = useAuth();
-  const [isLoadingDashboard, setIsLoadingDashboard] = useState(false);
-
   if (!isVisible) return null;
 
   const handleLogout = () => {
@@ -26,44 +21,8 @@ const UserInfoModal = ({ isVisible, user, onClose, onLogout }: UserInfoModalProp
 
   const ADMIN_URL = import.meta.env.VITE_ADMIN_URL;
 
-  const handleGoToDashboard = async () => {
-    if (!isAuthenticated) {
-      console.error('No hay sesión de autenticación');
-      return;
-    }
-
-    setIsLoadingDashboard(true);
-    try {
-      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
-      const normalizedBase = apiBaseUrl?.replace(/\/$/, '') || '';
-      
-      const response = await fetch(`${normalizedBase}/users/generate-temp-token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true'
-        },
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      if (data.success && data.data?.temp_token) {
-        const dashboardUrl = `${ADMIN_URL}?token=${data.data.temp_token}`;
-        window.open(dashboardUrl, '_blank');
-      } else {
-        throw new Error(data.message || 'Error al generar token temporal');
-      }
-    } catch (error) {
-      console.error('Error al generar token temporal:', error);
-      alert('Error al acceder al dashboard. Por favor, intenta nuevamente.');
-    } finally {
-      setIsLoadingDashboard(false);
-    }
+  const handleGoToDashboard = () => {
+    window.open(ADMIN_URL, '_blank');
   };
 
   return (
@@ -106,10 +65,9 @@ const UserInfoModal = ({ isVisible, user, onClose, onLogout }: UserInfoModalProp
             <button 
               className="btn-dashboard" 
               onClick={handleGoToDashboard}
-              disabled={isLoadingDashboard}
             >
               <i className="fas fa-tachometer-alt"></i>
-              {isLoadingDashboard ? 'Cargando...' : 'Ir al Dashboard'}
+              Ir al Dashboard
             </button>
             <button className="btn-logout" onClick={handleLogout}>
               <i className="fas fa-sign-out-alt"></i>

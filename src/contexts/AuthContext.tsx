@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import type { ReactNode } from 'react';
 
 interface User {
@@ -33,6 +33,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [mustChangePassword, setMustChangePassword] = useState(false);
+  const userRef = useRef<User | null>(null);
+  const initAuthAbortControllerRef = useRef<AbortController | null>(null);
+  const isInitializingRef = useRef(false);
+  
+  // Mantener ref actualizado con el usuario actual
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   // Función para verificar el estado de autenticación usando /users/me con cookies HTTP-only
   const checkAuthStatus = useCallback(async (): Promise<{ isValid: boolean; user?: User }> => {
@@ -78,7 +86,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         // Si es un abort (timeout), considerar como inválido por seguridad
         if (fetchError.name === 'AbortError') {
-          console.warn('Auth status check timeout');
           return { isValid: false };
         }
         
@@ -86,37 +93,74 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     } catch (error) {
       // Si hay un error de red, no cambiar el estado (podría ser un problema de conexión)
-      console.error('Error checking auth status:', error);
+      // No loguear errores normales de autenticación (401 es esperado si no hay sesión)
       return { isValid: false };
     }
   }, []);
 
   // Inicialización: verificar autenticación con cookies HTTP-only
   useEffect(() => {
+    // Evitar múltiples inicializaciones simultáneas (React StrictMode)
+    if (isInitializingRef.current) return;
+    isInitializingRef.current = true;
+    
+    // Verificar si hay indicación de sesión previa en localStorage
+    // Solo hacer petición si hubo un login previo (para evitar 401 innecesarios)
+    const hasAuthSession = localStorage.getItem('hasAuthSession') === 'true';
+    
+    if (!hasAuthSession) {
+      // No hay indicación de sesión previa, asumir que no hay sesión
+      setUser(null);
+      setMustChangePassword(false);
+      setIsLoading(false);
+      isInitializingRef.current = false;
+      return;
+    }
+    
+    // Crear AbortController para cancelar la petición si el componente se desmonta
+    initAuthAbortControllerRef.current = new AbortController();
+    
     const initAuth = async () => {
       try {
         // Verificar el estado de autenticación con /users/me usando cookies
         const { isValid, user: userData } = await checkAuthStatus();
+        
+        if (initAuthAbortControllerRef.current?.signal.aborted) return;
         
         if (isValid && userData) {
           // Sesión válida, restaurar datos del usuario
           setUser(userData);
           setMustChangePassword(userData.must_change_password || false);
         } else {
-          // No hay sesión válida
+          // No hay sesión válida, limpiar el flag
+          localStorage.removeItem('hasAuthSession');
           setUser(null);
           setMustChangePassword(false);
         }
       } catch (error) {
+        if (initAuthAbortControllerRef.current?.signal.aborted) return;
         console.error('Error initializing auth:', error);
+        localStorage.removeItem('hasAuthSession');
         setUser(null);
         setMustChangePassword(false);
       } finally {
-        setIsLoading(false);
+        if (!initAuthAbortControllerRef.current?.signal.aborted) {
+          setIsLoading(false);
+        }
+        isInitializingRef.current = false;
       }
     };
 
     initAuth();
+    
+    // Cleanup: abortar petición si el componente se desmonta
+    return () => {
+      if (initAuthAbortControllerRef.current) {
+        initAuthAbortControllerRef.current.abort();
+        initAuthAbortControllerRef.current = null;
+      }
+      isInitializingRef.current = false;
+    };
   }, [checkAuthStatus]);
 
   const login = async (email: string, password: string): Promise<boolean> => {
@@ -146,6 +190,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Solo actualizamos el estado local con los datos del usuario
         setUser(userData);
         setMustChangePassword(must_change_password || false);
+        
+        // Guardar flag en localStorage para indicar que hubo un login exitoso
+        localStorage.setItem('hasAuthSession', 'true');
 
         return true;
       } else {
@@ -159,38 +206,45 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Función de logout
   const logout = useCallback(async () => {
-    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
-    const normalizedBase = apiBaseUrl?.replace(/\/$/, '') || '';
+    // Verificar si realmente hay una sesión antes de intentar logout
+    const hadActiveUser = userRef.current !== null;
+    const hadSessionFlag = localStorage.getItem('hasAuthSession') === 'true';
 
-    if (normalizedBase) {
-      console.info('[Auth] Enviando logout al backend...');
-      try {
-        const response = await fetch(`${normalizedBase}/users/logout`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'ngrok-skip-browser-warning': 'true'
-          },
-          credentials: 'include',
-          body: JSON.stringify({})
-        });
-        
-        try {
-          const data = await response.clone().json();
-          console.info('[Auth] Respuesta logout:', data);
-        } catch (parseError) {
-          console.warn('[Auth] No se pudo parsear la respuesta de logout como JSON.', parseError);
-        }
-      } catch (error) {
-        console.error('Error enviando logout al backend:', error);
-      } finally {
-        console.info('[Auth] Petición de logout enviada (o intentada).');
-      }
-    }
-
-    // Limpiar estado local
+    // Limpiar estado local primero (siempre hacer esto)
     setUser(null);
     setMustChangePassword(false);
+    
+    // Remover flag de sesión
+    localStorage.removeItem('hasAuthSession');
+
+    // Solo intentar logout en backend si había un usuario activo actualmente
+    // No hacer logout solo por el flag, porque puede que la sesión ya expiró
+    if (hadActiveUser) {
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+      const normalizedBase = apiBaseUrl?.replace(/\/$/, '') || '';
+
+      if (normalizedBase) {
+        try {
+          const response = await fetch(`${normalizedBase}/users/logout`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'ngrok-skip-browser-warning': 'true'
+            },
+            credentials: 'include',
+            body: JSON.stringify({})
+          });
+          
+          // Si recibimos 401, significa que la sesión ya expiró - ignorar silenciosamente
+          if (response.status === 401 || response.status === 403) {
+            // Sesión ya expirada, no hacer nada más
+            return;
+          }
+        } catch (error) {
+          // Silenciar errores de logout (puede ser que la sesión ya expiró o no hay conexión)
+        }
+      }
+    }
   }, []);
 
   // Interceptar respuestas de fetch para detectar sesiones inválidas automáticamente
@@ -213,18 +267,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         // Verificar si la petición es a nuestra API (no hacer logout por errores de otras APIs)
         if (url && apiBaseUrl && url.includes(apiBaseUrl)) {
-          // Clonar la respuesta antes de hacer logout
-          const clonedResponse = response.clone();
+          // Ignorar peticiones de inicialización (/users/me) - son normales si no hay sesión
+          if (url.includes('/users/me')) {
+            // No hacer nada con estas peticiones, son parte de la inicialización
+            return response;
+          }
           
-          // Hacer logout automáticamente
-          console.warn('Sesión inválida detectada en respuesta de API, cerrando sesión automáticamente');
+          // No hacer logout automático si ya no hay usuario (es normal durante inicialización)
+          // Solo hacer logout si había un usuario antes
+          const currentUser = userRef.current;
           
-          // Usar setTimeout para evitar problemas de sincronización
-          setTimeout(() => {
-            logout();
-          }, 0);
-          
-          return clonedResponse;
+          // Solo hacer logout si había una sesión activa
+          if (currentUser) {
+            // Clonar la respuesta antes de hacer logout
+            const clonedResponse = response.clone();
+            
+            // Usar setTimeout para evitar problemas de sincronización
+            setTimeout(() => {
+              logout();
+            }, 0);
+            
+            return clonedResponse;
+          }
         }
       }
       
